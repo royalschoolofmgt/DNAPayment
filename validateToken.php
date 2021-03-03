@@ -9,21 +9,23 @@ require_once('db-config.php');
 require_once('helper.php');
 
 if(isset($_REQUEST['client_id']) && isset($_REQUEST['client_secret']) && isset($_REQUEST['client_terminal_id'])){
-	$con = getConnection();
+	$conn = getConnection();
 	$email_id = @$_REQUEST['bc_email_id'];
 	if(!empty($email_id)){
-		$sql = "select * from dna_token_validation where email_id='".$email_id."'";
-		$result = $con->query($sql);
-		/* If user already Exists checking validating Token Id
-			If not validated verify and update the status 
-		*/
-		if ($result->num_rows > 0) {
-			$result = $result->fetch_assoc();
+		$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
+		$stmt->execute();
+		$stmt->setFetchMode(PDO::FETCH_ASSOC);
+		$result = $stmt->fetchAll();
+		//print_r($result[0]);exit;
+		if (isset($result[0])) {
+			$result = $result[0];
 			if(!empty($_REQUEST['client_id']) && !empty($_REQUEST['client_secret']) && !empty($_REQUEST['client_terminal_id'])){
 				$sellerdb = $result['sellerdb'];
-				$data = createFolder($sellerdb);
+				$data = createFolder($sellerdb,$email_id);
 				$sql = 'update dna_token_validation set client_id="'.$_REQUEST['client_id'].'",client_secret="'.$_REQUEST['client_secret'].'",client_terminal_id="'.$_REQUEST['client_terminal_id'].'" where email_id="'.$email_id.'"';
-				$con->query($sql);
+				//echo $sql;exit;
+				$stmt = $conn->prepare($sql);
+				$stmt->execute();
 				header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
 			}else{
 				header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
@@ -38,17 +40,27 @@ if(isset($_REQUEST['client_id']) && isset($_REQUEST['client_secret']) && isset($
 	header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
 }
 /* creating folder Based on Seller */
-function createFolder($sellerdb){
-	$con = getConnection();
+function createFolder($sellerdb,$email_id){
+	$conn = getConnection();
 	if(!empty($sellerdb)){
 		$folderPath = './'.$sellerdb;
 		$filecontent = '$(document).ready(function() {
-	var stIntId = setInterval(function() {
-		if($("li.checkout-step--payment")[0]) {
-			$("li.checkout-step--payment").find("a").append(\'<form id="dnapaymentForm" name="dnapaymet"><input type="hidden" id="247dnakey" value="InZpbGFzQDI0N2NvbW1lcmNlLmNvLnVrIg==" ><button type="submit" class="" style="background-color: #424242;border-color: #424242;color: #fff;">Pay With DNA</button></form>\');
-			clearInterval(stIntId);
+	function callInterval(){
+		var stIntId = setInterval(function() {
+			if($("#checkout-payment-continue").length > 0) {
+				if($(".247dnapayment").length == 0){
+					$("#checkout-payment-continue").before(\'<div class="247dnapayment" style="padding:1px"><form id="dnapaymentForm" name="dnapaymet"><input type="hidden" id="247dnakey" value="'.base64_encode(json_encode($email_id)).'" ><button type="submit" class="" style="background-color: #424242;border-color: #424242;color: #fff;">Pay With DNA</button></form></div>\');
+				}
+				clearInterval(stIntId);
+			}
+		}, 1000);
+	}
+	var stIntId1 = setInterval(function() {
+		if($("#checkout-payment-continue").length == 0) {
+			callInterval();
 		}
-	}, 2000);
+	}, 1000);
+	callInterval();
 	$("body").on("click","#dnapaymentForm",function(e){
 		e.preventDefault();
 		var key = $("body #247dnakey").val();
@@ -57,30 +69,33 @@ function createFolder($sellerdb){
 			dataType: "json",
 			url: "/api/storefront/cart",
 			success: function (res) {
-				console.log(res,"ressssssssss");
 				if(res.length > 0){
-					var cartData = res[0]["lineItems"]["physicalItems"];
-					var totalAmount = 0;
-					var currency = res[0]["currency"]["code"];
-					$.each(cartData,function(k,v){
-						var quan = v.quantity;
-						var total = (parseFloat(quan) * parseFloat(v.salePrice));
-						totalAmount += parseFloat(total);
-					});
-					if(parseFloat(totalAmount) > 0){
-						$.ajax({
-							type: "POST",
-							dataType: "json",
-							url: "https://bigcommerce.247commerce.co.uk/dna_payment/authentication.php",
-							dataType: "json",
-							data:{"authKey":key,"totalAmount":totalAmount,"currency":currency},
-							success: function (res) {
-								if(res.status){
-									var data = JSON.parse(window.atob(res.data));
-									window.DNAPayments.openPaymentWidget(data);
+					if(res[0]["id"] != undefined){
+						var cartId = res[0]["id"];
+						if(cartId != ''){
+							$.ajax({
+								type: "GET",
+								dataType: "json",
+								url: "/api/storefront/checkouts/"+cartId,
+								success: function (cartres) {
+									var cartData = window.btoa(JSON.stringify(cartres));
+									$.ajax({
+										type: "POST",
+										dataType: "json",
+										crossDomain: true,
+										url: "https://dnapayments.247commerce.co.uk/authentication.php",
+										dataType: "json",
+										data:{"authKey":key,"cartId":cartId,cartData:cartData},
+										success: function (res) {
+											if(res.status){
+												var data = JSON.parse(window.atob(res.data));
+												window.DNAPayments.openPaymentWidget(data);
+											}
+										}
+									});
 								}
-							}
-						});
+							});
+						}
 					}
 				}
 			}

@@ -14,13 +14,17 @@ header("Pragma: no-cache");
 require_once('db-config.php');
 require_once('config.php');
 
-$con = getConnection();
+$conn = getConnection();
+
 if(isset($_REQUEST['bc_email_id'])){
 	$email_id = $_REQUEST['bc_email_id'];
-	$sql = "select * from dna_token_validation where email_id='".$email_id."'";
-	$result = $con->query($sql);
-	if ($result->num_rows > 0) {
-		$result = $result->fetch_assoc();
+	$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
+	$stmt->execute();
+	$stmt->setFetchMode(PDO::FETCH_ASSOC);
+	$result = $stmt->fetchAll();
+	//print_r($result[0]);exit;
+	if (isset($result[0])) {
+		$result = $result[0];
 		if(empty($result['client_id']) || empty($result['client_secret']) || empty($result['client_terminal_id'])){
 			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
 		}
@@ -79,11 +83,13 @@ if(isset($_REQUEST['bc_email_id'])){
 									/* getting feed data from table */
 									$con = getConnection();
 									$email_id = @$_REQUEST['bc_email_id'];
-									$sql_token = "select * from dna_token_validation where email_id='".$email_id."'";
-									//echo $sql_token;exit;
-									$result_token = $con->query($sql_token);
-									if ($result_token->num_rows > 0) {
-										while($v = $result_token->fetch_assoc()) {
+									$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
+									$stmt->execute();
+									$stmt->setFetchMode(PDO::FETCH_ASSOC);
+									$result_token = $stmt->fetchAll();
+									
+									if (count($result_token) > 0) {
+										foreach($result_token as $k=>$v){
 											$enabled = false;
 											if($v['is_enable'] == 1){
 												$enabled = true;

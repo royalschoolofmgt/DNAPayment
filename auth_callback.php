@@ -10,7 +10,7 @@
    $postData = array(
                     'client_id' => APP_CLIENT_ID,
                     'client_secret'  => APP_CLIENT_SECRET,
-                    'redirect_uri' => 'https://bigcommerce.247commerce.co.uk/dna_payment/auth_callback.php',
+                    'redirect_uri' => BASE_URL.'auth_callback.php',
                     'grant_type' => 'authorization_code',
                     'code' => $_GET['code'],
                     'scope' => $_GET['scope'],
@@ -78,16 +78,20 @@ function storeTokenData($response){
 		$store_hash = str_replace("stores/","",$response['context']);
 	}
 	if(!empty($email) && !empty($access_token) && !empty($store_hash)){
-		$con = getConnection();
-		$get_sql = "select * from dna_token_validation where email_id='".$email."'";
-		$result = $con->query($get_sql);
-		if ($result->num_rows > 0) {
+		$conn = getConnection();
+		$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email."'");
+		$stmt->execute();
+		$stmt->setFetchMode(PDO::FETCH_ASSOC);
+		$result = $stmt->fetchAll();
+		
+		if (count($result) > 0) {
 			$sql = 'update dna_token_validation set acess_token="'.$access_token.'",store_hash="'.$store_hash.'" where email_id="'.$email.'"';
-			$con->query($sql);
+			$stmt = $conn->prepare($sql);
+			$stmt->execute();
 		}else{
 			$sellerdb = '247c'.strtotime(date('y-m-d h:m:s'));
 			$sql = 'insert into dna_token_validation(email_id,sellerdb,acess_token,store_hash) values("'.$email.'","'.$sellerdb.'","'.$access_token.'","'.$store_hash.'")';
-			$con->query($sql);
+			$conn->exec($sql);
 		}
 	}
 }

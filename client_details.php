@@ -16,11 +16,13 @@ $con = getConnection();
 $data = array();
 if(isset($_REQUEST['bc_email_id'])){
 	$email_id = $_REQUEST['bc_email_id'];
-	$sql = "select * from dna_token_validation where email_id='".$email_id."'";
-	$result = $con->query($sql);
-	if ($result->num_rows > 0) {
-		$result = $result->fetch_assoc();
-		$data = $result;
+	$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
+	$stmt->execute();
+	$stmt->setFetchMode(PDO::FETCH_ASSOC);
+	$result = $stmt->fetchAll();
+	//print_r($result[0]);exit;
+	if ($result[0]) {
+		$result = $result[0];
 		if(!empty($result['client_id']) && !empty($result['client_secret']) && !empty($result['client_terminal_id'])){
 			header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
 		}
