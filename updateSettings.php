@@ -1,6 +1,6 @@
 <?php
 /**
-	* Token Validation Page
+	* Alter Client Details Page
 	* Author 247Commerce
 	* Date 22 FEB 2021
 */
@@ -8,7 +8,7 @@ require_once('config.php');
 require_once('db-config.php');
 require_once('helper.php');
 
-if(isset($_REQUEST['client_id']) && isset($_REQUEST['client_secret']) && isset($_REQUEST['client_terminal_id'])){
+if(isset($_REQUEST['payment_option'])){
 	$conn = getConnection();
 	$email_id = @$_REQUEST['bc_email_id'];
 	if(!empty($email_id)){
@@ -16,31 +16,35 @@ if(isset($_REQUEST['client_id']) && isset($_REQUEST['client_secret']) && isset($
 		$stmt->execute();
 		$stmt->setFetchMode(PDO::FETCH_ASSOC);
 		$result = $stmt->fetchAll();
-		//print_r($result[0]);exit;
-		if (isset($result[0])) {
-			$result = $result[0];
-			if(!empty($_REQUEST['client_id']) && !empty($_REQUEST['client_secret']) && !empty($_REQUEST['client_terminal_id'])){
+		
+		if (count($result) > 0) {
+			if(!empty($_REQUEST['payment_option'])){
+				$result = $result[0];
 				$sellerdb = $result['sellerdb'];
-				$data = createFolder($sellerdb,$email_id);
-				$sql = 'update dna_token_validation set client_id="'.$_REQUEST['client_id'].'",client_secret="'.$_REQUEST['client_secret'].'",client_terminal_id="'.$_REQUEST['client_terminal_id'].'" where email_id="'.$email_id.'"';
-				//echo $sql;exit;
+				//alterFile($sellerdb,$email_id);
+				
+				$sql = 'update dna_token_validation set payment_option="'.$_REQUEST['payment_option'].'" where email_id="'.$email_id.'"';
+				// Prepare statement
 				$stmt = $conn->prepare($sql);
+				// execute the query
 				$stmt->execute();
+				$conn->query($sql);
 				header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
 			}else{
-				header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+				header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
 			}
+			
 		}else{
-			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+			header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
 		}
 	}else{
-		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+		header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
 	}
 }else{
-	header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+	header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
 }
-/* creating folder Based on Seller */
-function createFolder($sellerdb,$email_id){
+/* creating tables Based on Seller */
+function alterFile($sellerdb,$email_id){
 	$conn = getConnection();
 	if(!empty($sellerdb)){
 		$folderPath = './'.$sellerdb;

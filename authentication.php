@@ -34,6 +34,7 @@ if(isset($_REQUEST['authKey'])){
 			//print_r($result[0]);exit;
 			if (isset($result[0])) {
 				$result = $result[0];
+				$payment_option = $result['payment_option'];
 				if(!empty($result['client_id']) && !empty($result['client_secret']) && !empty($result['client_terminal_id'])){
 					$sellerdb = $result['sellerdb'];
 					$acess_token = $result['acess_token'];
@@ -44,7 +45,12 @@ if(isset($_REQUEST['authKey'])){
 					$json = utf8_encode($string);
 					$cartData = json_decode($json,true);
 					if(!empty($cartData) && isset($cartData['id'])){
-						$totalAmount = $cartData['grandTotal'];
+						$totalAmount = 0;
+						$transaction_type = "AUTH";
+						if($payment_option == "CFO"){
+							$transaction_type = "SALE";
+							$totalAmount = $cartData['grandTotal'];
+						}
 						$currency = $cartData['cart']['currency']['code'];
 						$billingAddress = $cartData['billingAddress'];
 						$invoiceId = "247dna_".time();
@@ -61,7 +67,7 @@ if(isset($_REQUEST['authKey'])){
 						$api_response = oauth2_token($email_id,$request);
 						//print_r($api_response);exit;
 						if(isset($api_response['response'])){
-							$isql = 'insert into order_payment_details(email_id,order_id,cart_id,total_amount,currency,status,params) values("'.$email_id.'","'.$invoiceId.'","'.$cartData['id'].'","'.$totalAmount.'","'.$currency.'","PENDING","'.$_REQUEST['cartData'].'")';
+							$isql = 'insert into order_payment_details(transaction_type,email_id,order_id,cart_id,total_amount,amount_paid,currency,status,params) values("'.$transaction_type.'","'.$email_id.'","'.$invoiceId.'","'.$cartData['id'].'","'.$cartData['grandTotal'].'","'.$totalAmount.'","'.$currency.'","PENDING","'.$_REQUEST['cartData'].'")';
 							$conn->exec($isql);
 							$res['status'] = true;
 							$tokenData = array("email_id"=>$email_id,"invoice_id"=>$invoiceId);
@@ -75,6 +81,7 @@ if(isset($_REQUEST['authKey'])){
 										"description" => "Order payment",
 										"accountId" => "testuser",
 										"phone" => $billingAddress['phone'],
+										"transactionType" => $transaction_type,
 										"terminal" => $result['client_terminal_id'],
 										"amount" => $totalAmount,
 										"currency" => $currency,

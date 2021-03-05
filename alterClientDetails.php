@@ -9,7 +9,7 @@ require_once('db-config.php');
 require_once('helper.php');
 
 if(isset($_REQUEST['client_id']) && isset($_REQUEST['client_secret']) && isset($_REQUEST['client_terminal_id'])){
-	$con = getConnection();
+	$conn = getConnection();
 	$email_id = @$_REQUEST['bc_email_id'];
 	if(!empty($email_id)){
 		$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
@@ -19,6 +19,7 @@ if(isset($_REQUEST['client_id']) && isset($_REQUEST['client_secret']) && isset($
 		
 		if (count($result) > 0) {
 			if(!empty($_REQUEST['client_id']) && !empty($_REQUEST['client_secret']) && !empty($_REQUEST['client_terminal_id'])){
+				$result = $result[0];
 				$sellerdb = $result['sellerdb'];
 				//alterFile($sellerdb,$paystack_key);
 				
@@ -29,7 +30,7 @@ if(isset($_REQUEST['client_id']) && isset($_REQUEST['client_secret']) && isset($
 				// execute the query
 				$stmt->execute();
 				
-				$con->query($sql);
+				$conn->query($sql);
 				
 			}
 		}

@@ -28,6 +28,8 @@ if(isset($_REQUEST['bc_email_id'])){
 		if(empty($result['client_id']) || empty($result['client_secret']) || empty($result['client_terminal_id'])){
 			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
 		}
+	}else{
+		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
 	}
 }
 ?>
@@ -64,6 +66,7 @@ if(isset($_REQUEST['bc_email_id'])){
                     <div class="col-lg-12">
                         <div style="height: 135px;">
                             <div class="float-left"><h3>DNA Details</h3></div>
+                            <div class="float-right"><h3><a class="btn btn-line" href="orderDetails.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>" >Order Details</a></h3></div>
                         </div>
                         <div class="facts-box" style="padding: 0; border-radius: 10px;">
 
@@ -80,6 +83,7 @@ if(isset($_REQUEST['bc_email_id'])){
                                 </thead>
                                 <tbody>
 								<?php 
+									$payment_option = 'CFO';
 									/* getting feed data from table */
 									$con = getConnection();
 									$email_id = @$_REQUEST['bc_email_id'];
@@ -90,6 +94,7 @@ if(isset($_REQUEST['bc_email_id'])){
 									
 									if (count($result_token) > 0) {
 										foreach($result_token as $k=>$v){
+											$payment_option = $v['payment_option'];
 											$enabled = false;
 											if($v['is_enable'] == 1){
 												$enabled = true;
@@ -136,7 +141,24 @@ if(isset($_REQUEST['bc_email_id'])){
 									?>
   
                                 </tbody>
-                              </table>
+                            </table>
+								<div class="container">
+									<div class="row justify-content-center">
+										<div class="col-lg-4">
+											<div class="facts-box p-5">
+												<div class="media-body align-self-center connect-box">
+													<h3>Payment Options</h3>
+													<form action="updateSettings.php" method="POST" >
+														<input type="hidden" name="bc_email_id" value="<?= @$_REQUEST['bc_email_id'] ?>" />
+														<span><input type="radio" name="payment_option" <?= ($payment_option == "CFO")?'checked':'' ?> value="CFO" /> Capture funds on order placed</span><br/>
+														<span><input type="radio" name="payment_option" <?= ($payment_option == "CFS")?'checked':'' ?> value="CFS" /> Capture funds on Shipment</span><br/>
+														<div><button type="submit" class="btn btn-primary">Update</button><br></div>
+													</form>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
                         </div>
                     </div>
                 </div>
