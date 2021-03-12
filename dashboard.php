@@ -66,7 +66,12 @@ if(isset($_REQUEST['bc_email_id'])){
                     <div class="col-lg-12">
                         <div style="height: 135px;">
                             <div class="float-left"><h3>DNA Details</h3></div>
-                            <div class="float-right"><h3><a class="btn btn-line" href="orderDetails.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>" >Order Details</a></h3></div>
+                            <div class="float-right">
+								<h3><a class="btn btn-line" href="orderDetails.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>" >Order Details</a></h3>
+							</div>
+							<div class="float-right">
+								<h3><a class="btn btn-line" href="customButton.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>" >Custom Payment Button</a></h3>
+							</div>
                         </div>
                         <div class="facts-box" style="padding: 0; border-radius: 10px;">
 
@@ -169,7 +174,7 @@ if(isset($_REQUEST['bc_email_id'])){
 			<div class="modal-dialog modal-dialog-centered" role="document">
 			  <div class="modal-content">
 				<div class="modal-header">
-				  <h5 class="modal-title" id="exampleModalLongTitle"><span><img src="images/icons/trash-purple.svg" style="margin-top: -5px;"></span> <span class="purple">Disable Paystack</span>  </h5>
+				  <h5 class="modal-title" id="exampleModalLongTitle"><span><img src="images/icons/trash-purple.svg" style="margin-top: -5px;"></span> <span class="purple">Disable DNA</span>  </h5>
 				  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
 					<span aria-hidden="true">&times;</span>
 				  </button>

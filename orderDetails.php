@@ -106,13 +106,22 @@ if(isset($_REQUEST['bc_email_id'])){
 														<td data-label="Actions">
 															<?php
 																if($v['status'] == "CONFIRMED"){
-															?>
-																<a class="btn btn-line" href="refundOrder.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>&auth=<?= base64_encode(json_encode($v['invoice_id'])) ?>" >Refund</a>
+																	$ref_stmt = $conn->prepare("SELECT * FROM order_refund where email_id='".$_REQUEST['bc_email_id']."' and invoice_id='".$v['invoice_id']."' and refund_status='REFUND'");
+																	$ref_stmt->execute();
+																	$ref_stmt->setFetchMode(PDO::FETCH_ASSOC);
+																	$ref_result = $ref_stmt->fetchAll();
+																	if (count($ref_result) > 0) { ?>
+																		<a class="btn btn-line" href="#" >Refunded</a>
+																	<?php }else{ ?>
+																	<a class="btn btn-line" href="refundOrder.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>&auth=<?= base64_encode(json_encode($v['invoice_id'])) ?>" >Refund</a>
+																<?php } ?>
 															<?php } ?>
 															<?php
 																if($v['status'] == "CONFIRMED" && $v['type'] == "AUTH" && $v['settlement_status'] == "PENDING"){
 															?>
 																<a class="btn btn-line" href="settleOrder.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>&auth=<?= base64_encode(json_encode($v['invoice_id'])) ?>" >Settle</a>
+															<?php }else if($v['status'] == "CONFIRMED" && $v['type'] == "AUTH" && $v['settlement_status'] == "CHARGE"){ ?>
+																<a class="btn btn-line" href="#" >Settled</a>
 															<?php } ?>
 														</td>
 													  </tr>

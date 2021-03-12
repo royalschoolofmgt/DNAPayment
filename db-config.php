@@ -9,8 +9,12 @@
 		$password = "";
 		$database = "dna_pay";
 		$host = "localhost";
-		$con = mysqli_connect($host,$username,$password,$database);
-		return $con;
+		//$conn = mysqli_connect($host,$username,$password,$database);
+		
+		$conn = new PDO("mysql:host=$host;dbname=$database", $username, $password);
+		$conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+		
+		return $conn;
 	}
 		
 		

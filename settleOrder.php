@@ -113,15 +113,17 @@ if(isset($_REQUEST['auth'])){
 												<td>Settlement Status</td>
 												<td><?= $result['settlement_status'] ?></td>
 											</tr>
-											<tr class="no-border">
-												<td colspan=2>
-													<form action="proceedSettle.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>" method="POST" >
-														<input type="hidden" name="invoice_id" value="<?= $result['invoice_id'] ?>" />
-														<div class="sign-btn"><button type="submit" class="btn btn-primary">Settle</button><br></div>
-													</form>
-												</td>
-												<td colspan=2></td>
-											</tr>
+											<?php if($result['settlement_status'] != "CHARGE"){ ?>
+												<tr class="no-border">
+													<td colspan=2>
+														<form action="proceedSettle.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>" method="POST" >
+															<input type="hidden" name="invoice_id" value="<?= $result['invoice_id'] ?>" />
+															<div class="sign-btn"><button type="submit" class="btn btn-primary">Settle</button><br></div>
+														</form>
+													</td>
+													<td colspan=2></td>
+												</tr>
+											<?php } ?>
 										</tbody>
 									</table>
 								<?php
@@ -168,9 +170,9 @@ $(document).ready(function(){
 	var error = getUrlParameter('error');
 	if(error){
 		if(error == 0){
-			alert("Refund Processed Successfully");
+			alert("Settlement Processed Successfully");
 		}else if(error == 1){
-			alert("Refund Processed Failed");
+			alert("Settlement Processed Failed");
 		}else if(error == 2){
 			alert("Something Went Wrong");
 		}

@@ -5,9 +5,7 @@ header("Pragma: no-cache");
 if(!isset($_SESSION)){
 	session_start();
 }
-if(!isset($_SESSION['247authsess'])){
-	header("Location:index.php");
-}
+
 require_once('config.php');
 require_once('db-config.php');
 
@@ -40,20 +38,21 @@ if(isset($postData['invoice_id'])){
 		$payment_details = json_decode($result_refund[0]['api_response'],true);
 		$request = array(
 						"id"=>$payment_details['id'],
-						"amount"=>$result_refund[0]['total_amount']
+						"amount"=>(float)$result_refund[0]['total_amount']
 					);
 		//echo $last_id;exit;
-		$res = processSettlement($email_id,$request);
+		//$res = processSettlement($email_id,$request);
+		$res = array();
+		$res['response'] = json_decode('{"accountId":"testuser","amount":49.99,"currency":"USD","errorCode":0,"id":"a2f61de8-17e3-4e83-a931-673fe9dc43a3","invoiceId":"247dna_1615529299","message":"Successfully charged","payoutAmount":49.99,"success":true,"transactionState":"CHARGE"}',true);
+		//print_r($res);exit;
 		if(isset($res['response'])){
 			if(isset($res['response']['payoutAmount'])){
-				$usql = "UPDATE order_payment_details set settlement_status='".$res['response']['state']."',amount_paid='".$res['response']['payoutAmount']."',settlement_response='".addslashes($res['response'])."' where order_id=".$postData['invoice_id'];
-				$conn->prepare($isql);
+				$usql = "UPDATE order_payment_details set settlement_status='".$res['response']['transactionState']."',amount_paid='".$res['response']['payoutAmount']."',settlement_response='".addslashes(json_encode($res['response']))."' where order_id='".$postData['invoice_id']."'";
 				$stmt = $conn->prepare($usql);
 				$stmt->execute();
 				header("Location:settleOrder.php?bc_email_id=".@$_REQUEST['bc_email_id']."&auth=".base64_encode(json_encode($postData['invoice_id'])).'&error=0');
 			}else{
-				$usql = "UPDATE order_payment_details set settlement_status='".$res['response']['state']."',settlement_response='".addslashes($res['response'])."' where order_id=".$postData['invoice_id'];
-				$conn->prepare($isql);
+				$usql = "UPDATE order_payment_details set settlement_status='FAILED',settlement_response='".addslashes(json_encode($res['response']))."' where order_id=".$postData['invoice_id'];
 				$stmt = $conn->prepare($usql);
 				$stmt->execute();
 				header("Location:settleOrder.php?bc_email_id=".@$_REQUEST['bc_email_id']."&auth=".base64_encode(json_encode($postData['invoice_id'])).'&error=1');
@@ -79,7 +78,8 @@ function processSettlement($email_id,$request){
 			"Content-Type: application/json",
 			"Authorization: Bearer ".$bearer_token
 		);
-
+		
+		$request = json_encode($request);
 		//print_r($request);exit;
 		$url = SETTLE_URL;
 		$ch = curl_init(); 
@@ -87,6 +87,7 @@ function processSettlement($email_id,$request){
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 		curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
 		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+		curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
 		curl_setopt($ch, CURLOPT_VERBOSE, 1);   
 		curl_setopt($ch, CURLOPT_POST, 1);
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $request);
@@ -94,15 +95,16 @@ function processSettlement($email_id,$request){
 		$res = curl_exec($ch);
 		curl_close($ch);
 		//print_r($res);exit;
-		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response) values("'.$email_id.'","DNA","Settlement Process","'.addslashes($url).'","'.addslashes(json_encode($request)).'","'.addslashes($res).'")';
+		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response) values("'.$email_id.'","DNA","Settlement Process","'.addslashes($url).'","'.addslashes($request).'","'.addslashes($res).'")';
 		//echo $log_sql;exit;
 		$conn->exec($log_sql);
 		
 		$data['request'] = $request;
+		$data['response'] = array();
 		if(!empty($res)){
-			$data = json_decode($res,true);
-			if(isset($data['success'])){
-				$data['response'] = $data;
+			$res = json_decode($res,true);
+			if(isset($res['success'])){
+				$data['response'] = $res;
 			}
 		}
 	}
@@ -126,7 +128,7 @@ function authorization($email_id){
 			"Content-Type: application/json"
 		);
 		$request = array(
-						"Scope"=>"webapi",
+						"scope"=>"webapi",
 						"client_id"=>$result['client_id'],
 						"client_secret"=>$result['client_secret'],
 						"grant_type"=>"client_credentials",

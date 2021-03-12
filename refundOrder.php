@@ -144,17 +144,19 @@ if(isset($_REQUEST['auth'])){
 													?>
 												</td>
 											</tr>
-											<tr class="no-border">
-												<td colspan=2>
-													<form action="proceedRefund.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>" method="POST" >
-														Enter Amount to be Refunded
-														<input type="hidden" name="invoice_id" value="<?= $result['invoice_id'] ?>" />
-														<p><input class="form-control" type="number" name="refund_amount" value="" min=1 max="<?= $result['total_amount']-$refunded_amount ?>" /></p>
-														<div class="sign-btn"><button type="submit" class="btn btn-primary">Refund</button><br></div>
-													</form>
-												</td>
-												<td colspan=2></td>
-											</tr>
+											<?php if($refunded_amount == 0){ ?>
+												<tr class="no-border">
+													<td colspan=2>
+														<form action="proceedRefund.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>" method="POST" >
+															Enter Amount to be Refunded
+															<input type="hidden" name="invoice_id" value="<?= $result['invoice_id'] ?>" />
+															<p><input class="form-control" type="number" name="refund_amount" value="" min=1 max="<?= $result['total_amount']-$refunded_amount ?>" /></p>
+															<div class="sign-btn"><button type="submit" class="btn btn-primary">Refund</button><br></div>
+														</form>
+													</td>
+													<td colspan=2></td>
+												</tr>
+											<?php } ?>
 										</tbody>
 									</table>
 								<?php

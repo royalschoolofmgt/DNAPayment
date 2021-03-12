@@ -45,61 +45,58 @@ function createFolder($sellerdb,$email_id){
 	if(!empty($sellerdb)){
 		$folderPath = './'.$sellerdb;
 		$filecontent = '$(document).ready(function() {
-	function callInterval(){
-		var stIntId = setInterval(function() {
-			if($("#checkout-payment-continue").length > 0) {
-				if($(".247dnapayment").length == 0){
-					$("#checkout-payment-continue").before(\'<div class="247dnapayment" style="padding:1px"><form id="dnapaymentForm" name="dnapaymet"><input type="hidden" id="247dnakey" value="'.base64_encode(json_encode($email_id)).'" ><button type="submit" class="" style="background-color: #424242;border-color: #424242;color: #fff;">Pay With DNA</button></form></div>\');
-				}
+	var stIntId = setInterval(function() {
+		if($(".checkout-step--payment").length > 0) {
+			if($("#247dnapayment").length == 0){
+				$(".checkout-step--payment .checkout-view-header").after(\'<div id="247dnapayment" class="checkout-form" style="padding:1px"><form id="dnapaymentForm" name="dnapaymet"><input type="hidden" id="247dnakey" value="'.base64_encode(json_encode($email_id)).'" ><button type="submit" class="button button--action button--large button--slab optimizedCheckout-buttonPrimary" style="background-color: #424242;border-color: #424242;color: #fff;">DNA Payments</button></form></div>\');
 				clearInterval(stIntId);
 			}
-		}, 1000);
-	}
-	var stIntId1 = setInterval(function() {
-		if($("#checkout-payment-continue").length == 0) {
-			callInterval();
 		}
 	}, 1000);
-	callInterval();
 	$("body").on("click","#dnapaymentForm",function(e){
 		e.preventDefault();
-		var key = $("body #247dnakey").val();
-		$.ajax({
-			type: "GET",
-			dataType: "json",
-			url: "/api/storefront/cart",
-			success: function (res) {
-				if(res.length > 0){
-					if(res[0]["id"] != undefined){
-						var cartId = res[0]["id"];
-						if(cartId != ""){
-							$.ajax({
-								type: "GET",
-								dataType: "json",
-								url: "/api/storefront/checkouts/"+cartId,
-								success: function (cartres) {
-									var cartData = window.btoa(JSON.stringify(cartres));
-									$.ajax({
-										type: "POST",
-										dataType: "json",
-										crossDomain: true,
-										url: "https://dnapayments.247commerce.co.uk/authentication.php",
-										dataType: "json",
-										data:{"authKey":key,"cartId":cartId,cartData:cartData},
-										success: function (res) {
-											if(res.status){
-												var data = JSON.parse(window.atob(res.data));
-												window.DNAPayments.openPaymentWidget(data);
+		var buttonlength = $(".button--tertiary").length;
+		if(buttonlength >= 3){
+			var key = $("body #247dnakey").val();
+			$.ajax({
+				type: "GET",
+				dataType: "json",
+				url: "/api/storefront/cart",
+				success: function (res) {
+					if(res.length > 0){
+						if(res[0]["id"] != undefined){
+							var cartId = res[0]["id"];
+							if(cartId != ""){
+								$.ajax({
+									type: "GET",
+									dataType: "json",
+									url: "/api/storefront/checkouts/"+cartId,
+									success: function (cartres) {
+										var cartData = window.btoa(JSON.stringify(cartres));
+										$.ajax({
+											type: "POST",
+											dataType: "json",
+											crossDomain: true,
+											url: "'.BASE_URL.'authentication.php",
+											dataType: "json",
+											data:{"authKey":key,"cartId":cartId,cartData:cartData},
+											success: function (res) {
+												if(res.status){
+													var data = JSON.parse(window.atob(res.data));
+													window.DNAPayments.openPaymentWidget(data);
+												}
 											}
-										}
-									});
-								}
-							});
+										});
+									}
+								});
+							}
 						}
 					}
 				}
-			}
-		});
+			});
+		}else{
+			alert("Please Select Billing Address and Shipping Address");
+		}
 	});
 });';
 		$filename = 'custom_script.js';
