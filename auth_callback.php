@@ -92,11 +92,13 @@ function storeTokenData($response){
 			$stmt = $conn->prepare($sql);
 			$stmt->execute();
 			createCustomPage($email,$store_hash,$access_token);
+			createWebhooks($email,$store_hash,$access_token);
 		}else{
 			$sellerdb = '247c'.strtotime(date('y-m-d h:m:s'));
 			$sql = 'insert into dna_token_validation(email_id,sellerdb,acess_token,store_hash) values("'.$email.'","'.$sellerdb.'","'.$access_token.'","'.$store_hash.'")';
 			$conn->exec($sql);
 			createCustomPage($email,$store_hash,$access_token);
+			createWebhooks($email,$store_hash,$access_token);
 		}
 	}
 }
@@ -161,5 +163,55 @@ function createCustomPage($email_id,$store_hash,$acess_token){
 				}
 			}
 		}
+}
+function createWebhooks($email_id,$store_hash,$acess_token){
+	$conn = getConnection();
+	$webhooks = array(
+					array(
+						"id"=>1,
+						"scope"=>"store/order/statusUpdated",
+						"destination"=>BASE_URL."webhooks/updateOrderStatus.php?bc_email_id=".$email_id
+					)
+				);
+	foreach($webhooks as $k=>$v){
+		$url = STORE_URL.$store_hash.'/v3/hooks';
+		$header = array(
+			"X-Auth-Token: ".$acess_token,
+			"Accept: application/json",
+			"Content-Type: application/json"
+		);
+		$request = array(
+						"scope"=>$v['scope'],
+						"destination"=>$v['destination'],
+						"is_active"=>true
+					);
+		$request = json_encode($request);
+		$ch = curl_init($url);
+		curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+		curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+		curl_setopt($ch, CURLOPT_POST, 1);
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $request);
+		curl_setopt($ch, CURLOPT_ENCODING, "gzip,deflate");
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		
+		$res = curl_exec($ch);
+		curl_close($ch);
+		//print_r($res);exit;
+		if(!empty($res)){
+			$check_errors = json_decode($res);
+			if(isset($check_errors->errors)){
+			}else{
+				if(json_last_error() === 0){
+					$res = json_decode($res,true);
+					if(isset($res['data']['id'])){
+						$data = $res['data'];
+						$sqli = "insert into 247webhooks(email_id,webhook_bc_id,scope,destination,api_response) values('".$email_id."','".$data['id']."','".$data['scope']."','".$data['destination']."','".stripslashes(json_encode($res))."')";
+						$conn->query($sqli);
+					}
+				}
+			}
+		}
+	}
 }
 ?>

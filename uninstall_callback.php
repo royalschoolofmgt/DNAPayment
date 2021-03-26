@@ -28,6 +28,7 @@ function unInstallScripts($data){
 					$result = $result[0];
 					deleteScripts($result['sellerdb'],$result['acess_token'],$result['store_hash'],$email);
 					deleteCustomPage($result['sellerdb'],$result['acess_token'],$result['store_hash'],$email);
+					uninstallWebhooks($email,$result['store_hash'],$result['acess_token']);
 					$usql = "update dna_token_validation set is_enable=0,client_id='',client_secret='',	client_terminal_id='' where email_id='".$email."'";
 					//echo $usql;exit;
 					$stmt = $conn->prepare($usql);
@@ -119,6 +120,48 @@ function deleteCustomPage($sellerdb,$acess_token,$store_hash,$email_id){
 				//echo $sql;exit;
 				$conn->exec($sql);
 			}
+		}
+	}
+}
+function uninstallWebhooks($email_id,$store_hash,$acess_token){
+
+	$conn = getConnection();
+	$sql = "select * from 247webhooks where email_id='".$email_id."'";
+	$result = $conn->query($sql);
+	if ($result->num_rows > 0) {
+		while($v = $result->fetch_assoc()) {
+			$url = STORE_URL.$store_hash.'/v3/hooks/'.$v['webhook_bc_id'];
+			$header = array(
+				"X-Auth-Token: ".$acess_token,
+				"Accept: application/json",
+				"Content-Type: application/json"
+			);
+			$request = json_encode($request);
+			$ch = curl_init($url);
+			curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+			curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+			curl_setopt($ch, CURLOPT_CUSTOMREQUEST,"DELETE");
+			curl_setopt($ch, CURLOPT_ENCODING, "gzip,deflate");
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+			
+			$res = curl_exec($ch);
+			curl_close($ch);
+			//print_r($res);exit;
+			if(!empty($res)){
+				$check_errors = json_decode($res);
+				if(isset($check_errors->errors)){
+				}else{
+					if(json_last_error() === 0){
+						$res = json_decode($res,true);
+						if(isset($res['data']['id'])){
+							$data = $res['data'];
+						}
+					}
+				}
+			}
+			$sqli = "delete from 247webhooks where id='".$v['id']."'";
+			$conn->query($sqli);
 		}
 	}
 }

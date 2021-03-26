@@ -45,7 +45,7 @@ if(isset($postData['invoice_id'])){
 	$stmt_refund->execute();
 	$stmt_refund->setFetchMode(PDO::FETCH_ASSOC);
 	$result_refund = $stmt_refund->fetchAll();
-	if(isset($result_refund[0])) {
+	if(isset($result_refund[0]) && ($result_refund[0]['type'] == "AUTH") && ($result_refund[0]['settlement_status'] != "CHARGE")) {
 		$payment_details = json_decode($result_refund[0]['api_response'],true);
 		$request = array(
 						"id"=>$payment_details['id'],
