@@ -62,6 +62,7 @@ if(isset($postData['invoice_id'])){
 				$usql = "UPDATE order_payment_details set settlement_status='".$res['response']['transactionState']."',amount_paid='".$res['response']['payoutAmount']."',settlement_response='".addslashes(json_encode($res['response']))."' where order_id='".$postData['invoice_id']."'";
 				$stmt = $conn->prepare($usql);
 				$stmt->execute();
+				$statusResponse = updateOrderStatus($email_id,$postData['invoice_id']);
 				header("Location:settleOrder.php?bc_email_id=".@$_REQUEST['bc_email_id']."&auth=".base64_encode(json_encode($postData['invoice_id'])).'&error=0');
 			}else{
 				$usql = "UPDATE order_payment_details set settlement_status='FAILED',settlement_response='".addslashes(json_encode($res['response']))."' where order_id='".$postData['invoice_id']."'";
@@ -122,6 +123,60 @@ function processSettlement($email_id,$request){
 	}
 	
 	return $data;
+}
+
+function updateOrderStatus($email_id,$invoice_id) {
+	$conn = getConnection();
+	$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
+	$stmt->execute();
+	$stmt->setFetchMode(PDO::FETCH_ASSOC);
+	$result = $stmt->fetchAll();
+	if (isset($result[0])) {
+		$result = $result[0];
+		if(!empty($result['client_id']) || !empty($result['client_secret']) || !empty($result['client_terminal_id'])){
+			$acess_token = $result['acess_token'];
+			$store_hash = $result['store_hash'];
+			
+			$order_details = array();
+			$stmt_od = $conn->prepare("select * from order_details where invoice_id='".$invoice_id."'");
+			$stmt_od->execute();
+			$stmt_od->setFetchMode(PDO::FETCH_ASSOC);
+			$result_od = $stmt_od->fetchAll();
+			if (isset($result_od[0])) {
+				$order_details = $result_od[0];
+			}
+			
+			if(isset($order_details['order_id']) && !empty($order_details['order_id'])){
+				$url_u = STORE_URL.$store_hash.'/v2/orders/'.$order_details['order_id'];
+				$staff_comments = "Payment Number : ".$invoice_id.",Status : Settled,Settlement Date : ".date("Y-m-d h:i A");
+				
+				$request_u = array("status_id"=>2,"staff_notes"=>$staff_comments);
+				$request_u = json_encode($request_u,true);
+				$header = array(
+					"store_hash: ".$store_hash,
+					"X-Auth-Token: ".$acess_token,
+					"Accept: application/json",
+					"Content-Type: application/json"
+				);
+				
+				$ch = curl_init();
+				curl_setopt($ch, CURLOPT_URL, $url_u);
+				curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+				curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+				curl_setopt($ch, CURLOPT_POSTFIELDS, $request_u);
+				curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+				$res_u = curl_exec($ch);
+				curl_close($ch);
+				
+				$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response) values("'.$email_id.'","BigCommerce","Update Order","'.addslashes($url_u).'","'.addslashes($request_u).'","'.addslashes($res_u).'")';
+				
+				$conn->exec($log_sql);
+				
+				$u_sql = "update order_refund set order_comments='".$staff_comments."' where r_id='".$rder_refund_id."'";
+				$conn->exec($u_sql);
+			}
+		}
+	}
 }
 
 function authorization($email_id){
