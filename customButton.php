@@ -19,18 +19,21 @@ $conn = getConnection();
 /* check zoovu token is validated or not 
 	If already Verified redirect to Home Page
 */
-if(isset($_REQUEST['bc_email_id'])){
+if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 	$email_id = $_REQUEST['bc_email_id'];
-	$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-	$stmt->execute();
+	$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+	$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+	$stmt->execute([$email_id,$validation_id]);
 	$stmt->setFetchMode(PDO::FETCH_ASSOC);
 	$result = $stmt->fetchAll();
 	//print_r($result[0]);exit;
 	if (isset($result[0])) {
 		$result = $result[0];
-		if(empty($result['client_id']) && empty($result['client_secret']) && empty($result['client_terminal_id'])){
-			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+		if(empty($result['client_id']) || empty($result['client_secret']) || empty($result['client_terminal_id'])){
+			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 		}
+	}else{
+		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 	}
 }
 
@@ -68,6 +71,7 @@ if(isset($_REQUEST['bc_email_id'])){
     <link href="css/style.css" rel="stylesheet">
     <link href="css/main.css" rel="stylesheet">
     <link href="css/media.css" rel="stylesheet">
+	<link rel="stylesheet" href="css/toaster/toaster.css">
 
 </head>
 
@@ -89,7 +93,7 @@ if(isset($_REQUEST['bc_email_id'])){
 		
 			<div class="col-md-6 col-8 text-left"><h4>Custom Payment Button</h4></div>
 			<div class="col-md-6 col-4 text-right">
-				<a href="dashboard.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>">
+				<a href="dashboard.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".$_REQUEST['key'] ?>">
 					<h5><i class="fas fa-arrow-left"></i> Back To Dashboard</h5>
 				</a>
 			</div>
@@ -99,13 +103,26 @@ if(isset($_REQUEST['bc_email_id'])){
 			<div class="order-details-bg settle">
 				<form action="updateCustomButton.php" method="POST" >
 					<input type="hidden" name="bc_email_id" value="<?= @$_REQUEST['bc_email_id'] ?>" />
+					<input type="hidden" name="key" value="<?= @$_REQUEST['key'] ?>" />
 					<?php
-						$stmt_c = $conn->prepare("select * from custom_dnapay_button where email_id='".$_REQUEST['bc_email_id']."'");
-						$stmt_c->execute();
+						$container_id = '.checkout-step--payment .checkout-view-header';
+						$css_prop = '#dnapaymentForm>button{
+	display:block;
+	background-color: #00FF00 !important;
+	color: #000000 !important;
+	border-color: #FF0000 !important;
+}';
+						
+						$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+						$stmt_c = $conn->prepare("select * from custom_dnapay_button where email_id=? and token_validation_id=?");
+						$stmt_c->execute([$_REQUEST['bc_email_id'],$validation_id]);
 						$stmt_c->setFetchMode(PDO::FETCH_ASSOC);
 						$result_c = $stmt_c->fetchAll();
 						if(count($result_c) > 0){
 							$result_c = $result_c[0];
+						}else{
+							$result_c['container_id'] = $container_id;
+							$result_c['css_prop'] = $css_prop;
 						}
 						//print_r($result_c);exit;
 						$enable = '';
@@ -114,18 +131,49 @@ if(isset($_REQUEST['bc_email_id'])){
 						}
 					?>
 					Container Id / Class
-					<input type="text" name="container_id" required value="<?= @$result_c['container_id'] ?>" class="form-control" placeholder="Container Id / Class">
+					<input type="text" name="container_id" id="container_id" required value="<?= @$result_c['container_id'] ?>" class="form-control" placeholder="Container Id / Class">
 					<br/>
 					Css Properties 
-					<textarea name="css_prop" class="signin form-control" placeholder=".button{display:block;}"><?= @$result_c['css_prop'] ?></textarea>
+					<textarea name="css_prop" id="css_prop" class="signin form-control" style="height: 150px;" placeholder=".button{display:block;}"><?= @$result_c['css_prop'] ?></textarea>
 					<br/>
 					<input type="checkbox" name="is_enabled" <?= $enable ?> />    Enable Custom Button 
-					<button type="submit" class="btn btn-submit">Save</button>
+					<div class="text-right"><button type="button" id="resetCustom" class="btn btn-order">Reset</button>&nbsp;&nbsp;&nbsp;<button type="submit" class="btn btn-order">Save</button></div>
 				</form>
 			</div>
 		</div>
 	</div>
 </section>
+<script src="js/jquery.min.js"></script>
+<script type="text/javascript" charset="utf8" src="js/toaster/jquery.toaster.js"></script>
+<script>
+var id = '<?= $container_id ?>';
+var css = '<?= base64_encode($css_prop) ?>';
+$('body').on('click','#resetCustom',function(){
+	$('body #container_id').val(id);
+	$('body #css_prop').val(window.atob(css));
+});
+var getUrlParameter = function getUrlParameter(sParam) {
+	var sPageURL = window.location.search.substring(1),
+		sURLVariables = sPageURL.split("&"),
+		sParameterName,
+		i;
+
+	for (i = 0; i < sURLVariables.length; i++) {
+		sParameterName = sURLVariables[i].split("=");
+
+		if (sParameterName[0] === sParam) {
+			return typeof sParameterName[1] === undefined ? true : decodeURIComponent(sParameterName[1]);
+		}
+	}
+	return false;
+};
+$(document).ready(function(){
+	var updated = getUrlParameter('updated');
+	if(updated){
+		$.toaster({ priority : "success", title : "Success", message : "DNAPayments Custom buuton updated for your Store,Please wait for some time and check the changes" });
+	}
+});
+</script>
 </body>
 
 </html>

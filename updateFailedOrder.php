@@ -20,9 +20,9 @@ if(!empty($data)){
 	if(isset($data['success']) && $data['success'] == false){
 		$conn = getConnection();
 		$invoiceId = $data['invoiceId'];
-		$usql = 'update order_payment_details set status = "FAILED",api_response="'.addslashes(json_encode($data)).'" where order_id="'.$invoiceId.'"';
+		$usql = 'update order_payment_details set status = ?,api_response=? where order_id=?';
 		$stmt = $conn->prepare($usql);
-		$stmt->execute();
+		$stmt->execute(["FAILED",addslashes(json_encode($data)),$invoiceId]);
 	}
 }
 

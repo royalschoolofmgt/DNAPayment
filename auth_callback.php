@@ -61,7 +61,19 @@
 
 		if(isset($response['user']['email'])){
 			$email = $response['user']['email'];
-			header("Location: index.php?bc_email_id=".$email);
+			$store_hash = @$response['context'];
+			$store_hash = str_replace("stores/","",$store_hash);
+			
+			$conn = getConnection();
+			$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and store_hash=?");
+			$stmt->execute([$email,$store_hash]);
+			$stmt->setFetchMode(PDO::FETCH_ASSOC);
+			$result = $stmt->fetchAll();
+				
+			if (count($result) > 0) {
+				$result = $result[0];
+				header("Location: index.php?bc_email_id=".$email."&key=".base64_encode(json_encode($result['validation_id'],true)));exit;
+			}
 		}
     }  
 
@@ -82,27 +94,30 @@ function storeTokenData($response){
 	}
 	if(!empty($email) && !empty($access_token) && !empty($store_hash)){
 		$conn = getConnection();
-		$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email."'");
-		$stmt->execute();
+		$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and store_hash=?");
+		$stmt->execute([$email,$store_hash]);
 		$stmt->setFetchMode(PDO::FETCH_ASSOC);
 		$result = $stmt->fetchAll();
 		
 		if (count($result) > 0) {
-			$sql = 'update dna_token_validation set acess_token="'.$access_token.'",store_hash="'.$store_hash.'" where email_id="'.$email.'"';
+			$result = $result[0];
+			$sql = 'update dna_token_validation set acess_token=? where email_id=? and store_hash=?';
 			$stmt = $conn->prepare($sql);
-			$stmt->execute();
-			createCustomPage($email,$store_hash,$access_token);
-			createWebhooks($email,$store_hash,$access_token);
+			$stmt->execute([$access_token,$email,$store_hash]);
+			createCustomPage($email,$store_hash,$access_token,$result['validation_id']);
+			createWebhooks($email,$store_hash,$access_token,$result['validation_id']);
 		}else{
 			$sellerdb = '247c'.strtotime(date('y-m-d h:m:s'));
-			$sql = 'insert into dna_token_validation(email_id,sellerdb,acess_token,store_hash) values("'.$email.'","'.$sellerdb.'","'.$access_token.'","'.$store_hash.'")';
-			$conn->exec($sql);
-			createCustomPage($email,$store_hash,$access_token);
-			createWebhooks($email,$store_hash,$access_token);
+			$sql = 'insert into dna_token_validation(email_id,sellerdb,acess_token,store_hash) values(?,?,?,?)';
+			$stmt= $conn->prepare($sql);
+			$stmt->execute([$email,$sellerdb,$access_token,$store_hash]);
+			$last_id = $conn->lastInsertId();
+			createCustomPage($email,$store_hash,$access_token,$last_id);
+			createWebhooks($email,$store_hash,$access_token,$last_id);
 		}
 	}
 }
-function createCustomPage($email_id,$store_hash,$acess_token){
+function createCustomPage($email_id,$store_hash,$acess_token,$validation_id){
 	
 	$conn = getConnection();
 	
@@ -147,9 +162,9 @@ function createCustomPage($email_id,$store_hash,$acess_token){
 		$res = curl_exec($ch);
 		curl_close($ch);
 		//print_r($res);exit;
-		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response) values("'.$email_id.'","BigCommerce","Custom Page","'.addslashes($url).'","'.addslashes($request).'","'.addslashes($res).'")';
-		//echo $log_sql;exit;
-		$conn->exec($log_sql);
+		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response,token_validation_id) values(?,?,?,?,?,?,?)';
+		$stmt= $conn->prepare($log_sql);
+		$stmt->execute([$email_id,"BigCommerce","Custom Page",addslashes($url),addslashes($request),addslashes($res),$validation_id]);
 		if(!empty($res)){
 			$check_errors = json_decode($res);
 			if(isset($check_errors->errors)){
@@ -157,20 +172,21 @@ function createCustomPage($email_id,$store_hash,$acess_token){
 				if(json_last_error() === 0){
 					$res = json_decode($res,true);
 					if(isset($res['id'])){
-						$sqli = "insert into 247custompages(email_id,page_bc_id,api_response) values('".$email_id."','".$res['id']."','".addslashes(json_encode($res))."')";
-						$conn->exec($sqli);
+						$sqli = "insert into 247custompages(email_id,page_bc_id,api_response,token_validation_id) values(?,?,?,?)";
+						$stmt= $conn->prepare($sqli);
+						$stmt->execute([$email_id,$res['id'],addslashes(json_encode($res)),$validation_id]);
 					}
 				}
 			}
 		}
 }
-function createWebhooks($email_id,$store_hash,$acess_token){
+function createWebhooks($email_id,$store_hash,$acess_token,$validation_id){
 	$conn = getConnection();
 	$webhooks = array(
 					array(
 						"id"=>1,
 						"scope"=>"store/order/statusUpdated",
-						"destination"=>BASE_URL."webhooks/updateOrderStatus.php?bc_email_id=".$email_id
+						"destination"=>BASE_URL."webhooks/updateOrderStatus.php?bc_email_id=".$email_id."&key=".base64_encode(json_encode($validation_id,true))
 					)
 				);
 	foreach($webhooks as $k=>$v){
@@ -198,6 +214,9 @@ function createWebhooks($email_id,$store_hash,$acess_token){
 		$res = curl_exec($ch);
 		curl_close($ch);
 		//print_r($res);exit;
+		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response,token_validation_id) values(?,?,?,?,?,?,?)';
+		$stmt= $conn->prepare($log_sql);
+		$stmt->execute([$email_id,"BigCommerce","Webhooks",addslashes($url),addslashes($request),addslashes($res),$validation_id]);
 		if(!empty($res)){
 			$check_errors = json_decode($res);
 			if(isset($check_errors->errors)){
@@ -206,8 +225,9 @@ function createWebhooks($email_id,$store_hash,$acess_token){
 					$res = json_decode($res,true);
 					if(isset($res['data']['id'])){
 						$data = $res['data'];
-						$sqli = "insert into 247webhooks(email_id,webhook_bc_id,scope,destination,api_response) values('".$email_id."','".$data['id']."','".$data['scope']."','".$data['destination']."','".stripslashes(json_encode($res))."')";
-						$conn->query($sqli);
+						$sqli = "insert into 247webhooks(email_id,webhook_bc_id,scope,destination,api_response,token_validation_id) values(?,?,?,?,?,?)";
+						$stmt= $conn->prepare($sqli);
+						$stmt->execute([$email_id,$data['id'],$data['scope'],$data['destination'],stripslashes(json_encode($res)),$validation_id]);
 					}
 				}
 			}

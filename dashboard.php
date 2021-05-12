@@ -15,21 +15,21 @@ require_once('db-config.php');
 require_once('config.php');
 
 $conn = getConnection();
-
-if(isset($_REQUEST['bc_email_id'])){
+if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 	$email_id = $_REQUEST['bc_email_id'];
-	$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-	$stmt->execute();
+	$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+	$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+	$stmt->execute([$email_id,$validation_id]);
 	$stmt->setFetchMode(PDO::FETCH_ASSOC);
 	$result = $stmt->fetchAll();
 	//print_r($result[0]);exit;
 	if (isset($result[0])) {
 		$result = $result[0];
 		if(empty($result['client_id']) || empty($result['client_secret']) || empty($result['client_terminal_id'])){
-			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 		}
 	}else{
-		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 	}
 }
 ?>
@@ -64,6 +64,7 @@ if(isset($_REQUEST['bc_email_id'])){
     <!-- Custom CSS -->
     <link href="css/style.css" rel="stylesheet">
     <link href="css/main.css" rel="stylesheet">
+	<link rel="stylesheet" href="css/toaster/toaster.css">
 
 </head>
 <body>
@@ -80,14 +81,20 @@ if(isset($_REQUEST['bc_email_id'])){
                     </span>
 
                     <span class="btn-secion">
-                        <a class="btn btn-yellow" href="customButton.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>" >Custom Payment Button</a>
-                        <a class="btn btn-order" href="orderDetails.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>" >Order Details</a>
+                        <a class="btn btn-yellow" href="customButton.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>" >Custom Payment Button</a>
+                        <a class="btn btn-order" href="orderDetails.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>" >Order Details</a>
                     </span>
                 </div>                
             </div>
         </div>
     </header>
-
+	<style>
+		##toaster{
+			top:40% !important;
+			right:40% !important;
+			width: 400px !important;
+		}
+	</style>
     <section class="order-section">
         <div class="container">
             <div class="row">
@@ -95,14 +102,16 @@ if(isset($_REQUEST['bc_email_id'])){
                 <div class="white-bg dash-head">
 					<form action="updateSettings.php" method="POST" >
 					<input type="hidden" name="bc_email_id" value="<?= @$_REQUEST['bc_email_id'] ?>" />
+					<input type="hidden" name="key" value="<?= @$_REQUEST['key'] ?>" />
                     <div class="col-md-12">
 						<?php 
 							$payment_option = 'CFO';
 							/* getting feed data from table */
 							$con = getConnection();
 							$email_id = @$_REQUEST['bc_email_id'];
-							$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-							$stmt->execute();
+							$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+							$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+							$stmt->execute([$email_id,$validation_id]);
 							$stmt->setFetchMode(PDO::FETCH_ASSOC);
 							$result_token = $stmt->fetchAll();
 							
@@ -116,17 +125,17 @@ if(isset($_REQUEST['bc_email_id'])){
 							?>
 								<ul class="user-detail">
 									<li>
-										<h5 class="user-head">Name</h5>
+										<!--<h5 class="user-head">BigCommerce Email</h5>
 										<p class="user-para">
 											<?= $v['email_id'] ?>
-										</p>
+										</p>-->
 
 										<h5 class="user-head">Client Id</h5>
 										
 											<div id="changeText" style="display:none;">
 												<input type="text" class="form-control" style="width: 50%;display:inline" value="<?= $v['client_id'] ?>" id="changeTextInput" >&nbsp;
-												<img data-key="<?= $v['client_id'] ?>" style="height:40px;" src="images/icons/tick.jpg" class="saveKey save" />&nbsp;
-												<img style="height:25px;" id="cancelKey" src="images/icons/cancel.svg" />
+												<img data-key="<?= $v['client_id'] ?>" style="height:20px;" src="images/check.png" class="saveKey save" />&nbsp;
+												<img style="height:19px;" id="cancelKey" src="images/cross.png" />
 											</div>
 											<div id="tableText"><p class="user-para"><?= $v['client_id'] ?></p></div>
 										
@@ -136,8 +145,8 @@ if(isset($_REQUEST['bc_email_id'])){
 										
 											<div id="changeText1" style="display:none;">
 												<input type="text" class="form-control" style="width: 50%;display:inline" value="<?= $v['client_secret'] ?>" id="changeTextInput1" >&nbsp;&nbsp;&nbsp;
-												<img data-key="<?= $v['client_secret'] ?>" style="height:40px;" src="images/icons/tick.jpg" class="saveKey save1" />&nbsp;&nbsp;&nbsp;
-												<img style="height:25px;" id="cancelKey1" src="images/icons/cancel.svg" />
+												<img data-key="<?= $v['client_secret'] ?>" style="height:20px;" src="images/check.png" class="saveKey save1" />&nbsp;&nbsp;&nbsp;
+												<img style="height:19px;" id="cancelKey1" src="images/cross.png" />
 											</div>
 											<div id="tableText1"><p class="user-para"><?= $v['client_secret'] ?></p></div>
 										
@@ -147,8 +156,8 @@ if(isset($_REQUEST['bc_email_id'])){
 										
 											<div id="changeText2" style="display:none;">
 												<input type="text" class="form-control" style="width: 50%;display:inline" value="<?= $v['client_terminal_id'] ?>" id="changeTextInput2" >&nbsp;&nbsp;&nbsp;
-												<img data-key="<?= $v['client_terminal_id'] ?>" style="height:40px;" src="images/icons/tick.jpg" class="saveKey save2" />&nbsp;&nbsp;&nbsp;
-												<img style="height:25px;" id="cancelKey2" src="images/icons/cancel.svg" />
+												<img data-key="<?= $v['client_terminal_id'] ?>" style="height:20px;" src="images/check.png" class="saveKey save2" />&nbsp;&nbsp;&nbsp;
+												<img style="height:19px;" id="cancelKey2" src="images/cross.png" />
 											</div>
 											<div id="tableText2"><p class="user-para"><?= $v['client_terminal_id'] ?></p></div>
 										
@@ -167,12 +176,12 @@ if(isset($_REQUEST['bc_email_id'])){
 											<label class="radio-container">
 												<input type="radio" name="payment_option" <?= ($payment_option == "CFS")?'checked':'' ?> value="CFS" />
 												<span class="radio-checkmark"></span>
-												Capture on Shipment
+												Capture on shipment
 											</label>
 										</div>
 									</li>
 									<li>
-										<h5 class="user-head">Action</h5>
+										<h5 class="user-head">Checkout</h5>
 										<label class="switch">
 										  <input id="actionChange" type="checkbox" <?= ($enabled)?'checked':'' ?> value="<?= ($enabled)?'1':'0' ?>" />
 										  <span class="slider round"></span>
@@ -194,20 +203,20 @@ if(isset($_REQUEST['bc_email_id'])){
                 <span class="title-head" style="color: #000; margin-top:30px; ">
                     Order Details
 
-                    <a href="orderDetails.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>" style="float: right;margin-top: 10px;">View all</a>
+                    <a href="orderDetails.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>" style="float: right;margin-top: 10px;">View all</a>
                 </span>
 
                     
 
                 <div class="white-bg marTP-30 od-block" style="width: 100%;">
-                    <form class="row gy-2 gx-3 align-items-center search-form">
+                    <form class="row gy-2 gx-3 align-items-center search-form" style="display:none">
                         <div class="col-sm-10 lt-search">
                             <div class="input-group">
                                 <div class="input-group-text se-ico"><i class="fas fa-search"></i></div>
-                                <input type="text" class="form-control search-box" id="autoSizingInputGroup" placeholder="Username">
+                                <input type="text" class="form-control search-box" id="dropdownMenuButton1" placeholder="Order ID">
                             </div>
                         </div>
-                        <div class="col-sm-2 rt-search">
+                        <div class="col-sm-2 rt-search" style="display:none;">
                             
                             <select class="form-select" id="autoSizingSelect">
                                 <option selected>Action</option>
@@ -233,9 +242,10 @@ if(isset($_REQUEST['bc_email_id'])){
 
                         <tbody>
 							<?php
-								$sql_res = "SELECT opd.id,opd.settlement_status,opd.type,opd.amount_paid,opd.email_id as email,opd.order_id as invoice_id,od.order_id,opd.status,opd.currency,opd.total_amount,opd.created_date FROM order_payment_details opd LEFT JOIN order_details od ON opd.order_id = od.invoice_id WHERE opd.email_id='".$_REQUEST['bc_email_id']."' order by opd.id desc LIMIT 0,3";
+								$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+								$sql_res = "SELECT opd.id,opd.settlement_status,opd.type,opd.amount_paid,opd.email_id as email,opd.order_id as invoice_id,od.order_id,opd.status,opd.currency,opd.total_amount,opd.created_date FROM order_payment_details opd LEFT JOIN order_details od ON opd.order_id = od.invoice_id WHERE opd.email_id=? and opd.token_validation_id=? order by opd.id desc LIMIT 0,15";
 								$stmt_res = $conn->prepare($sql_res);
-								$stmt_res->execute();
+								$stmt_res->execute([$_REQUEST['bc_email_id'],$validation_id]);
 								$stmt_res->setFetchMode(PDO::FETCH_ASSOC);
 								$result_final = $stmt_res->fetchAll();
 								if(count($result_final) > 0){
@@ -288,18 +298,18 @@ if(isset($_REQUEST['bc_email_id'])){
 										<td>
 											<?php
 												$actions = '';
-													if($values['status'] == "CONFIRMED" && $values['type'] == "AUTH" && $values['settlement_status'] == "PENDING"){
-														$actions .= '<a style="width: 100%;" class="btn btn-line" href="settleOrder.php?bc_email_id='.$_REQUEST['bc_email_id'].'&auth='.base64_encode(json_encode($values['invoice_id'])).'" ><button style="width: 100%;" type="button" class="btn btn-outline-primary">Settle</button></a>';
+													if($values['status'] == "CONFIRMED" && $values['type'] == "AUTH" && ($values['settlement_status'] == "PENDING" || $values['settlement_status'] == "FAILED")){
+														$actions .= '<a style="width: 100%;margin-bottom: 5px;" class="btn btn-line" href="settleOrder.php?bc_email_id='.$_REQUEST['bc_email_id'].'&key='.$_REQUEST['key'].'&auth='.base64_encode(json_encode($values['invoice_id'])).'" ><button style="width: 100%;" type="button" class="btn btn-outline-primary">Settle</button></a>';
 													}else if($values['status'] == "CONFIRMED" && $values['type'] == "AUTH" && $values['settlement_status'] == "CHARGE"){
-														$actions .= '<button type="button" class="btn btn-outline-success" style="width: 100%;">Settled</button>';
+														$actions .= '<button type="button" class="btn btn-outline-success" style="width: 100%;margin-bottom: 5px;" disabled >Settled</button>';
 														$ref_stmt = $conn->prepare("SELECT * FROM order_refund where email_id='".$_REQUEST['bc_email_id']."' and invoice_id='".$values['invoice_id']."' and refund_status='REFUND'");
 														$ref_stmt->execute();
 														$ref_stmt->setFetchMode(PDO::FETCH_ASSOC);
 														$ref_result = $ref_stmt->fetchAll();
 														if (count($ref_result) > 0) {
-															$actions .= '<button type="button" style="width: 100%;" class="btn btn-outline-success">Refunded</button>';
+															$actions .= '<button type="button" style="width: 100%;margin-bottom: 5px;" class="btn btn-outline-success" disabled >Refunded</button>';
 														}else{
-															$actions .= '<a class="btn btn-line" style="width: 100%;" href="refundOrder.php?bc_email_id='.$_REQUEST['bc_email_id'].'&auth='.base64_encode(json_encode($values['invoice_id'])).'" ><button style="width: 100%;" type="button" class="btn btn-outline-primary">Refund</button></a>';
+															$actions .= '<a class="btn btn-line" style="width: 100%;margin-bottom: 5px;" href="refundOrder.php?bc_email_id='.$_REQUEST['bc_email_id'].'&key='.$_REQUEST['key'].'&auth='.base64_encode(json_encode($values['invoice_id'])).'" ><button style="width: 100%;" type="button" class="btn btn-outline-primary">Refund</button></a>';
 														}
 													}else if($values['status'] == "CONFIRMED"){
 														$ref_stmt = $conn->prepare("SELECT * FROM order_refund where email_id='".$_REQUEST['bc_email_id']."' and invoice_id='".$values['invoice_id']."' and refund_status='REFUND'");
@@ -307,9 +317,9 @@ if(isset($_REQUEST['bc_email_id'])){
 														$ref_stmt->setFetchMode(PDO::FETCH_ASSOC);
 														$ref_result = $ref_stmt->fetchAll();
 														if (count($ref_result) > 0) {
-															$actions .= '<button type="button" class="btn btn-outline-success" style="width: 100%;" >Refunded</a></button>';
+															$actions .= '<button type="button" class="btn btn-outline-success" style="width: 100%;margin-bottom: 5px;" disabled >Refunded</a></button>';
 														}else{
-															$actions .= '<a class="btn btn-line" style="width: 100%;" href="refundOrder.php?bc_email_id='.$_REQUEST['bc_email_id'].'&auth='.base64_encode(json_encode($values['invoice_id'])).'" ><button style="width: 100%;" type="button" class="btn btn-outline-primary">Refund</button></a>';
+															$actions .= '<a class="btn btn-line" style="width: 100%;margin-bottom: 5px;" href="refundOrder.php?bc_email_id='.$_REQUEST['bc_email_id'].'&key='.$_REQUEST['key'].'&auth='.base64_encode(json_encode($values['invoice_id'])).'" ><button style="width: 100%;" type="button" class="btn btn-outline-primary">Refund</button></a>';
 														}
 													}
 											?>
@@ -360,13 +370,13 @@ if(isset($_REQUEST['bc_email_id'])){
 			<div class="modal-dialog modal-dialog-centered" role="document">
 			  <div class="modal-content">
 				<div class="modal-header">
-				  <h5 class="modal-title" id="exampleModalLongTitle"><span><img src="images/icons/trash-purple.svg" style="margin-top: -5px;"></span> <span class="purple">Disable DNA</span>  </h5>
+				  <h5 class="modal-title" id="exampleModalLongTitle"><span><img src="images/icons/trash-purple.svg" style="margin-top: -5px;"></span> <span class="purple">Remove DNA Payments from Checkout</span>  </h5>
 				  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-					<span aria-hidden="true">&times;</span>
+					<img style="height:25px;" src="images/cross.png" />
 				  </button>
 				</div>
 				<div class="modal-body" id="modalContent">
-				  Are you sure you want to disable <strong>DNA?</strong>.
+				  Are you sure you want to disable DNA Payments? </strong>
 				</div>
 				<div class="modal-footer">
 				  <button type="button" class="btn btn-order" id="cancelConfirm" data-dismiss="modal">Cancel</button>
@@ -378,9 +388,11 @@ if(isset($_REQUEST['bc_email_id'])){
 	<script src="js/jquery.min.js"></script>
     <script src="js/bootstrap.min.js"></script>
 	<script src="js/bootstrap.bundle.min.js"></script>
+	<script type="text/javascript" charset="utf8" src="js/toaster/jquery.toaster.js"></script>
 
 	<script type="text/javascript">
 		var bc_email_id = "<?= @$_REQUEST['bc_email_id'] ?>";
+		var key = "<?= @$_REQUEST['key'] ?>";
 		$(document).ready(function() {
 			// inspired by http://jsfiddle.net/arunpjohny/564Lxosz/1/
 			$('.table-responsive-stack').each(function (i) {
@@ -450,7 +462,7 @@ if(isset($_REQUEST['bc_email_id'])){
 				var client_terminal_id = $('body #changeTextInput2').val();
 				$('body #changeText').hide();
 				$('body #changeText1').hide();
-				$('body #changeText12').hide();
+				$('body #changeText2').hide();
 				$('body #tableText').show();
 				$('body #tableText1').show();
 				$('body #tableText2').show();
@@ -467,13 +479,13 @@ if(isset($_REQUEST['bc_email_id'])){
 				if(post){
 					$.ajax({
 						type: 'POST',
-						url: 'alterClientDetails.php?bc_email_id='+bc_email_id,
+						url: 'alterClientDetails.php?bc_email_id='+bc_email_id+'key='+key,
 						data:{client_id:client_id,client_secret:client_secret,client_terminal_id:client_terminal_id},
 						success: function (res) {
 							$('body .save').attr('data-key',client_id)
 							$('body .save1').attr('data-key',client_secret)
 							$('body .save2').attr('data-key',client_terminal_id)
-							alert("changed successfully");
+							$.toaster({ priority : "success", title : "Success", message : "Details Changed Successfully" });
 							$('body #tableText').html('<p class="user-para">'+client_id+'</p>');
 							$('body #tableText1').html('<p class="user-para">'+client_secret+'</p>');
 							$('body #tableText2').html('<p class="user-para">'+client_terminal_id+'</p>');
@@ -484,14 +496,14 @@ if(isset($_REQUEST['bc_email_id'])){
 			$('body').on('change','#actionChange',function(){
 				var val = $(this).val();
 				if(val == "0"){
-					var url = 'enable.php?bc_email_id='+bc_email_id;
+					var url = 'enable.php?bc_email_id='+bc_email_id+'&key='+key;
 					window.location.href = url;
 				}else{
 					$('body #exampleModalCenter').modal('show');
 				}
 			});
 			$('body').on('click','#deleteConfirm',function(e){
-				var url = 'disable.php?bc_email_id='+bc_email_id;
+				var url = 'disable.php?bc_email_id='+bc_email_id+'&key='+key;
 				window.location.href = url;
 			});
 			$('body').on('click','#cancelConfirm,.close',function(e){
@@ -517,15 +529,15 @@ if(isset($_REQUEST['bc_email_id'])){
 		$(document).ready(function(){
 			var enabled = getUrlParameter('enabled');
 			if(enabled){
-				alert("DNA Payments enabled for your Store");
+				$.toaster({ priority : "success", title : "Success", message : "DNA Payments enabled for your Store" });
 			}
 			var disabled = getUrlParameter('disabled');
 			if(disabled){
-				alert("DNA Payments disabled for your Store");
+				$.toaster({ priority : "success", title : "Success", message : "DNA Payments disabled for your Store" });
 			}
 			var updated = getUrlParameter('updated');
 			if(updated){
-				alert("Payment Option Updated");
+				$.toaster({ priority : "success", title : "Success", message : "Payment Option Updated" });
 			}
 		});
 	</script>

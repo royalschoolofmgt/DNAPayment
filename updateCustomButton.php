@@ -12,15 +12,17 @@ require_once('helper.php');
 if(isset($_REQUEST['container_id'])){
 	$conn = getConnection();
 	$email_id = @$_REQUEST['bc_email_id'];
-	if(!empty($email_id)){
-		$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-		$stmt->execute();
+	$key = @$_REQUEST['key'];
+	if(!empty($email_id) && !empty($key)){
+		$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+		$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+		$stmt->execute([$email_id,$validation_id]);
 		$stmt->setFetchMode(PDO::FETCH_ASSOC);
 		$result = $stmt->fetchAll();
 		
 		if (count($result) > 0) {
-			$stmt_c = $conn->prepare("select * from custom_dnapay_button where email_id='".$email_id."'");
-			$stmt_c->execute();
+			$stmt_c = $conn->prepare("select * from custom_dnapay_button where email_id=? and token_validation_id=?");
+			$stmt_c->execute([$email_id,$validation_id]);
 			$stmt_c->setFetchMode(PDO::FETCH_ASSOC);
 			$result_c = $stmt_c->fetchAll();
 			$enable = 0;
@@ -28,38 +30,40 @@ if(isset($_REQUEST['container_id'])){
 				$enable = 1;
 			}
 			if (count($result_c) > 0) {
-				$usql = 'update custom_dnapay_button set container_id="'.$_REQUEST['container_id'].'",css_prop="'.$_REQUEST['css_prop'].'",is_enabled="'.$enable.'" where email_id="'.$email_id.'"';
+				$usql = 'update custom_dnapay_button set container_id=?,css_prop=?,is_enabled=? where email_id=? and token_validation_id=?';
 				// execute the query
-				$conn->exec($usql);
+				$stmt_u = $conn->prepare($usql);
+				$stmt_u->execute([$_REQUEST['container_id'],$_REQUEST['css_prop'],$enable,$email_id,$validation_id]);
 				$sellerdb = $result[0]['sellerdb'];
-				alterFile($sellerdb,$email_id);
+				alterFile($sellerdb,$email_id,$validation_id);
 			}else{
-				$isql = 'insert into custom_dnapay_button(email_id,container_id,css_prop,is_enabled) values("'.$email_id.'","'.$_REQUEST['container_id'].'","'.$_REQUEST['css_prop'].'","'.$enable.'")';
+				$isql = 'insert into custom_dnapay_button(email_id,container_id,css_prop,is_enabled,token_validation_id) values(?,?,?,?,?)';
 				$stmt_i = $conn->prepare($isql);
 				// execute the query
-				$stmt_i->execute();
+				$stmt_i->execute([$email_id,$_REQUEST['container_id'],$_REQUEST['css_prop'],$enable,$validation_id]);
 				$sellerdb = $result[0]['sellerdb'];
-				alterFile($sellerdb,$email_id);
+				alterFile($sellerdb,$email_id,$validation_id);
 			}
-			header("Location:customButton.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+			header("Location:customButton.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']."&updated=1");
 		}else{
-			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 		}
 	}else{
-		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 	}
 }else{
-	header("Location:customButton.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+	header("Location:customButton.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 }
 
 /* creating tables Based on Seller */
-function alterFile($sellerdb,$email_id){
+function alterFile($sellerdb,$email_id,$validation_id){
+	$tokenData = array("email_id"=>$email_id,"key"=>$validation_id);
 	$conn = getConnection();
 	if(!empty($sellerdb)){
 		$folderPath = './'.$sellerdb;
 		
-		$stmt_c = $conn->prepare("select * from custom_dnapay_button where email_id='".$email_id."'");
-		$stmt_c->execute();
+		$stmt_c = $conn->prepare("select * from custom_dnapay_button where email_id=? and token_validation_id=?");
+		$stmt_c->execute([$email_id,$validation_id]);
 		$stmt_c->setFetchMode(PDO::FETCH_ASSOC);
 		$result_c = $stmt_c->fetchAll();
 		if (count($result_c) > 0) {
@@ -82,9 +86,14 @@ function alterFile($sellerdb,$email_id){
 			var stIntId = setInterval(function() {
 				if($(".checkout-step--payment").length > 0) {
 					if($("#247dnapayment").length == 0){
-						$("'.$id.'").after(\'<div id="247dnapayment" class="checkout-form" style="padding:1px"><div id="247Err" style="color:red"></div><form id="dnapaymentForm" name="dnapaymet"><input type="hidden" id="247dnakey" value="'.base64_encode(json_encode($email_id)).'" ><button type="submit" class="button button--action button--large button--slab optimizedCheckout-buttonPrimary" style="background-color: #424242;border-color: #424242;color: #fff;">DNA Payments</button></form></div>\');
+						$("'.$id.'").after(\'<div id="247dnapayment" class="checkout-form" style="padding:1px;display:none;"><div id="247Err" style="color:red"></div><form id="dnapaymentForm" name="dnapaymet"><input type="hidden" id="247dnakey" value="'.base64_encode(json_encode($tokenData)).'" ><button type="submit" class="button button--action button--large button--slab optimizedCheckout-buttonPrimary" style="background-color: #424242;border-color: #424242;color: #fff;">DEBIT/CREDIT CARDS | powered by DNA PAYMENTS</button></form></div>\');
 						loadStatus();
 						clearInterval(stIntId);
+						/**
+							when user is logged in and billing/shipping 
+							address set show custom payment button 
+						*/
+						checkDnaPayBtnVisibility();
 					}
 				}
 			}, 1000);';
@@ -93,9 +102,14 @@ function alterFile($sellerdb,$email_id){
 		var stIntId = setInterval(function() {
 			if($(".checkout-step--payment").length > 0) {
 				if($("#247dnapayment").length == 0){
-					$(".checkout-step--payment .checkout-view-header").after(\'<div id="247dnapayment" class="checkout-form" style="padding:1px"><div id="247Err" style="color:red"></div><form id="dnapaymentForm" name="dnapaymet"><input type="hidden" id="247dnakey" value="'.base64_encode(json_encode($email_id)).'" ><button type="submit" class="button button--action button--large button--slab optimizedCheckout-buttonPrimary" style="background-color: #424242;border-color: #424242;color: #fff;">DNA Payments</button></form></div>\');
+					$(".checkout-step--payment .checkout-view-header").after(\'<div id="247dnapayment" class="checkout-form" style="padding:1px"><div id="247Err" style="color:red"></div><form id="dnapaymentForm" name="dnapaymet"><input type="hidden" id="247dnakey" value="'.base64_encode(json_encode($tokenData)).'" ><button type="submit" class="button button--action button--large button--slab optimizedCheckout-buttonPrimary" style="background-color: #424242;border-color: #424242;color: #fff;">DEBIT/CREDIT CARDS | powered by DNA PAYMENTS</button></form></div>\');
 					loadStatus();
 					clearInterval(stIntId);
+					/**
+						when user is logged in and billing/shipping 
+						address set show custom payment button 
+					*/
+					checkDnaPayBtnVisibility();
 				}
 			}
 		}, 1000);';
@@ -109,13 +123,26 @@ function alterFile($sellerdb,$email_id){
 		var stIntId = setInterval(function() {
 			if($(".checkout-step--payment").length > 0) {
 				if($("#247dnapayment").length == 0){
-					$(".checkout-step--payment .checkout-view-header").after(\'<div id="247dnapayment" class="checkout-form" style="padding:1px"><div id="247Err" style="color:red"></div><form id="dnapaymentForm" name="dnapaymet"><input type="hidden" id="247dnakey" value="'.base64_encode(json_encode($email_id)).'" ><button type="submit" class="button button--action button--large button--slab optimizedCheckout-buttonPrimary" style="background-color: #424242;border-color: #424242;color: #fff;">DNA Payments</button></form></div>\');
+					$(".checkout-step--payment .checkout-view-header").after(\'<div id="247dnapayment" class="checkout-form" style="padding:1px"><div id="247Err" style="color:red"></div><form id="dnapaymentForm" name="dnapaymet"><input type="hidden" id="247dnakey" value="'.base64_encode(json_encode($tokenData)).'" ><button type="submit" class="button button--action button--large button--slab optimizedCheckout-buttonPrimary" style="background-color: #424242;border-color: #424242;color: #fff;">DEBIT/CREDIT CARDS | powered by DNA PAYMENTS</button></form></div>\');
 					loadStatus();
 					clearInterval(stIntId);
+					/**
+						when user is logged in and billing/shipping 
+						address set show custom payment button 
+					*/
+					checkDnaPayBtnVisibility();
 				}
 			}
 		}, 1000);';
 		}
+		$filecontent .= '$("body").on("click","button[data-test=\'step-edit-button\'], button[data-test=\'sign-out-link\']",function(e){
+		//hide dna payment button
+		$("#247dnapayment").hide();
+	});
+
+	$("body").on("click", "button#checkout-customer-continue, button#checkout-shipping-continue, button#checkout-billing-continue", function() {
+		checkDnaPayBtnVisibility();
+	});';
 	$filecontent .= '$("body").on("click","#dnapaymentForm",function(e){
 		e.preventDefault();
 		var text = "Please wait...";
@@ -150,7 +177,6 @@ function alterFile($sellerdb,$email_id){
 								dataType: "json",
 								url: "/api/storefront/checkouts/"+cartId,
 								success: function (cartres) {
-									var cartData = window.btoa(JSON.stringify(cartres));
 									var billingAddress = "";
 									var consignments = "";
 									var bstatus = 0;
@@ -165,14 +191,14 @@ function alterFile($sellerdb,$email_id){
 											sstatus = shippingAddressValdation(consignments);
 										}
 									}
-									if(bstatus ==0 && sstatus == 0){
+									if(bstatus ==0 && sstatus == 0 && parseFloat(cartres.grandTotal)>0){
 										$.ajax({
 											type: "POST",
 											dataType: "json",
 											crossDomain: true,
 											url: "'.BASE_URL.'authentication.php",
 											dataType: "json",
-											data:{"authKey":key,"cartId":cartId,cartData:cartData},
+											data:{"authKey":key,"cartId":cartId},
 											success: function (res) {
 												$("#247dnapayment").waitMe("hide");
 												if(res.status){
@@ -351,6 +377,55 @@ function loadStatus(){
 	}
 }
 ';
+$filecontent .= 'function checkDnaPayBtnVisibility() {
+	var checkDownlProd = false;
+	var key = $("body #247dnakey").val();
+	$.ajax({
+		type: "GET",
+		dataType: "json",
+		url: "/api/storefront/cart",
+		success: function (res) {
+			if(res.length > 0){
+				if(res[0]["id"] != undefined){
+					var cartId = res[0]["id"];
+					var cartCheck = res[0]["lineItems"];
+					checkDownlProd = checkOnlyDownloadableProducts(cartCheck);
+					if(cartId != ""){
+						$.ajax({
+							type: "GET",
+							dataType: "json",
+							url: "/api/storefront/checkouts/"+cartId,
+							success: function (cartres) {
+								var cartData = window.btoa(unescape(encodeURIComponent(JSON.stringify(cartres))));
+								var billingAddress = "";
+								var consignments = "";
+								var bstatus = 0;
+								var sstatus = 0;
+								if(typeof(cartres.billingAddress) != "undefined" && cartres.billingAddress !== null) {
+									billingAddress = cartres.billingAddress;
+									bstatus = billingAddressValdation(billingAddress);
+								}
+								if(checkDownlProd){
+									if(typeof(cartres.consignments) != "undefined" && cartres.consignments !== null) {
+										consignments = cartres.consignments;
+										sstatus = shippingAddressValdation(consignments);
+									}
+								}
+
+								if(bstatus ==0 && sstatus == 0) {
+
+									//hide cardstream payment button
+									$("#247dnapayment").show();
+								}
+							}
+						});
+					}
+				}
+			}
+		}
+
+	});
+}';
 		$filename = 'custom_script.js';
 		$res = saveFile($filename,$filecontent,$folderPath);
 	}

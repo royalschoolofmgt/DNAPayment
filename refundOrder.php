@@ -16,26 +16,28 @@ require_once('config.php');
 
 $conn = getConnection();
 
-if(isset($_REQUEST['bc_email_id'])){
+if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 	$email_id = $_REQUEST['bc_email_id'];
-	$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-	$stmt->execute();
+	$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+	$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+	$stmt->execute([$email_id,$validation_id]);
 	$stmt->setFetchMode(PDO::FETCH_ASSOC);
 	$result = $stmt->fetchAll();
+	//print_r($result[0]);exit;
 	if (isset($result[0])) {
 		$result = $result[0];
 		if(empty($result['client_id']) || empty($result['client_secret']) || empty($result['client_terminal_id'])){
-			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 		}
 	}else{
-		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 	}
 }
 $invoice_id = '';
 if(isset($_REQUEST['auth'])){
 	$invoice_id = json_decode(base64_decode($_REQUEST['auth']));
 }else{
-	header("Location:dashboard.php");
+	header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 }
 ?>
 <!DOCTYPE html>
@@ -70,6 +72,7 @@ if(isset($_REQUEST['auth'])){
     <link href="css/style.css" rel="stylesheet">
     <link href="css/main.css" rel="stylesheet">
     <link href="css/media.css" rel="stylesheet">
+	<link rel="stylesheet" href="css/toaster/toaster.css">
 
 </head>
 
@@ -91,7 +94,7 @@ if(isset($_REQUEST['auth'])){
 		
 			<div class="col-md-6 col-8 text-left"><h4>Settle Client Transaction</h4></div>
 			<div class="col-md-6 col-4 text-right">
-				<a href="dashboard.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>">
+				<a href="dashboard.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>">
 					<h5><i class="fas fa-arrow-left"></i> Back To Dashboard</h5>
 				</a>
 			</div>
@@ -101,8 +104,8 @@ if(isset($_REQUEST['auth'])){
 			<?php
 				$conn = getConnection();
 				$refunded_amount = 0;
-				$ref_stmt = $conn->prepare("SELECT * FROM order_refund where email_id='".$_REQUEST['bc_email_id']."' and invoice_id='".$invoice_id."' and refund_status='REFUND'");
-				$ref_stmt->execute();
+				$ref_stmt = $conn->prepare("SELECT * FROM order_refund where email_id=? and invoice_id=? and refund_status='REFUND'");
+				$ref_stmt->execute([$_REQUEST['bc_email_id'],$invoice_id]);
 				$ref_stmt->setFetchMode(PDO::FETCH_ASSOC);
 				$ref_result = $ref_stmt->fetchAll();
 				if (count($ref_result) > 0) {
@@ -111,14 +114,14 @@ if(isset($_REQUEST['auth'])){
 					}
 				}
 				
-				$stmt = $conn->prepare("SELECT * FROM order_payment_details opd,order_details od WHERE opd.order_id = od.invoice_id and opd.order_id='".$invoice_id."'");
-				$stmt->execute();
+				$stmt = $conn->prepare("SELECT * FROM order_payment_details opd,order_details od WHERE opd.order_id = od.invoice_id and opd.order_id=?");
+				$stmt->execute([$invoice_id]);
 				$stmt->setFetchMode(PDO::FETCH_ASSOC);
 				$result = $stmt->fetchAll();
 				if (count($result) > 0) {
 					$result = $result[0];
 				?>
-				<form action="proceedRefund.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>" method="POST" >
+				<form action="proceedRefund.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>" method="POST" >
 			<div class="order-details-bg settle">
 			
 				<div class="col-md-12 s-conetnt">
@@ -151,7 +154,7 @@ if(isset($_REQUEST['auth'])){
 						</div>
 						<div class="col-md-5">
 							<input type="hidden" name="invoice_id" value="<?= $result['invoice_id'] ?>" />
-							<p><input class="form-control" type="number" name="refund_amount" value="" min=1 max="<?= $result['total_amount']-$refunded_amount ?>" />(Amount can be Refunded only one time).</p>
+							<p><input class="form-control" type="number" required name="refund_amount" step=any value="" min=1 max="<?= $result['total_amount']-$refunded_amount ?>" />(Amount can be Refunded only one time).</p>
 						</div>
 						<?php } ?>
 						<div class="col-md-3 amount-refund visible-lg">
@@ -168,8 +171,8 @@ if(isset($_REQUEST['auth'])){
 				</div>
 				<div class="col-md-12 s-conetnt collapse" id="demoTrans">
 					<?php
-						$ref_stmt = $conn->prepare("SELECT * FROM order_refund where email_id='".$_REQUEST['bc_email_id']."' and invoice_id='".$invoice_id."'");
-						$ref_stmt->execute();
+						$ref_stmt = $conn->prepare("SELECT * FROM order_refund where email_id=? and invoice_id=?");
+						$ref_stmt->execute([$_REQUEST['bc_email_id'],$invoice_id]);
 						$ref_stmt->setFetchMode(PDO::FETCH_ASSOC);
 						$ref_result = $ref_stmt->fetchAll();
 						if (count($ref_result) > 0) {
@@ -227,6 +230,7 @@ if(isset($_REQUEST['auth'])){
 <script src="js/jquery.min.js"></script>
 <script src="js/bootstrap.bundle.min.js"></script>
 <script src="js/bootstrap.min.js"></script>
+<script type="text/javascript" charset="utf8" src="js/toaster/jquery.toaster.js"></script>
 <script>
 $('input[name="chkOrgRow"]').on('change', function() {
   $(this).closest('tr').toggleClass('yellow', $(this).is(':checked'));
@@ -254,11 +258,11 @@ $(document).ready(function(){
 	var error = getUrlParameter('error');
 	if(error){
 		if(error == 0){
-			alert("Refund Processed Successfully");
+			$.toaster({ priority : "success", title : "Success", message : "Refund Processed Successfully" });
 		}else if(error == 1){
-			alert("Refund Processed Failed");
+			$.toaster({ priority : "success", title : "Success", message : "Refund Processed Failed" });
 		}else if(error == 2){
-			alert("Something Went Wrong");
+			$.toaster({ priority : "success", title : "Success", message : "Something Went Wrong" });
 		}
 	}
 	$('body').on('click','.showTrans',function(e){

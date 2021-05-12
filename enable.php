@@ -9,13 +9,15 @@ header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
 require_once('config.php');
 require_once('db-config.php');
-
-if(isset($_REQUEST['bc_email_id'])){
+//print_r($_REQUEST);exit;
+if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 	$conn = getConnection();
 	$email_id = @$_REQUEST['bc_email_id'];
-	if(!empty($email_id)){
-		$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-		$stmt->execute();
+	$key = @$_REQUEST['key'];
+	if(!empty($email_id) && !empty($key)){
+		$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+		$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+	$stmt->execute([$email_id,$validation_id]);
 		$stmt->setFetchMode(PDO::FETCH_ASSOC);
 		$result = $stmt->fetchAll();
 		//print_r($result[0]);exit;
@@ -25,28 +27,28 @@ if(isset($_REQUEST['bc_email_id'])){
 				$sellerdb = $result['sellerdb'];
 				$acess_token = $result['acess_token'];
 				$store_hash = $result['store_hash'];
-				$res = createScripts($sellerdb,$acess_token,$store_hash,$email_id);
+				$res = createScripts($sellerdb,$acess_token,$store_hash,$email_id,$validation_id);
 				if($res == "1"){
-					$usql = "update dna_token_validation set is_enable=1 where email_id='".$_REQUEST['bc_email_id']."'";
+					$usql = "update dna_token_validation set is_enable=? where email_id=? and validation_id=?";
 					//echo $usql;exit;
 					$stmt = $conn->prepare($usql);
-					$stmt->execute();
+					$stmt->execute(['1',$_REQUEST['bc_email_id'],$validation_id]);
 				}
-				header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']."&enabled=1");
+				header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']."&enabled=1");
 			}else{
-				header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+				header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 			}
 		}else{
-			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 		}
 	}else{
-		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 	}
 }else{
-	header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+	header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 }
 
-function createScripts($sellerdb,$acess_token,$store_hash,$email_id){
+function createScripts($sellerdb,$acess_token,$store_hash,$email_id,$validation_id){
 	$conn = getConnection();
 	$url = array();
 	$rStatus = 0;
@@ -91,15 +93,16 @@ function createScripts($sellerdb,$acess_token,$store_hash,$email_id){
 		$res = curl_exec($ch);
 		curl_close($ch);
 		//print_r($res);exit;
-		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response) values("'.$email_id.'","BigCommerce","script_tag_injection","'.addslashes($url).'","'.addslashes($request).'","'.addslashes($res).'")';
-		//echo $log_sql;exit;
-		$conn->exec($log_sql);
+		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response,token_validation_id) values(?,?,?,?,?,?,?)';
+		$stmt= $conn->prepare($log_sql);
+		$stmt->execute([$email_id, "BigCommerce", "script_tag_injection",addslashes($url),addslashes($request),addslashes($res),$validation_id]);
 		if(!empty($res)){
 			$response = json_decode($res,true);
 			if(isset($response['data']['uuid'])){
-				$sql = 'insert into dna_scripts(script_email_id,script_filename,script_code,status,api_response) values("'.$email_id.'","'.basename($v).'","'.$response['data']['uuid'].'","1","'.addslashes($res).'")';
+				$sql = 'insert into dna_scripts(script_email_id,script_filename,script_code,status,api_response,token_validation_id) values(?,?,?,?,?,?)';
 				//echo $sql;exit;
-				$conn->exec($sql);
+				$stmt= $conn->prepare($sql);
+				$stmt->execute([$email_id, basename($v), $response['data']['uuid'],"1",addslashes($res),$validation_id]);
 				$rStatus++;
 			}
 		}

@@ -11,9 +11,11 @@ require_once('helper.php');
 if(isset($_REQUEST['payment_option'])){
 	$conn = getConnection();
 	$email_id = @$_REQUEST['bc_email_id'];
-	if(!empty($email_id)){
-		$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-		$stmt->execute();
+	$key = @$_REQUEST['key'];
+	if(!empty($email_id) && !empty($key)){
+		$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+		$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+	$stmt->execute([$email_id,$validation_id]);
 		$stmt->setFetchMode(PDO::FETCH_ASSOC);
 		$result = $stmt->fetchAll();
 		
@@ -23,25 +25,24 @@ if(isset($_REQUEST['payment_option'])){
 				$sellerdb = $result['sellerdb'];
 				//alterFile($sellerdb,$email_id);
 				
-				$sql = 'update dna_token_validation set payment_option="'.$_REQUEST['payment_option'].'" where email_id="'.$email_id.'"';
+				$sql = 'update dna_token_validation set payment_option=? where email_id=? and validation_id=?';
 				// Prepare statement
 				$stmt = $conn->prepare($sql);
 				// execute the query
-				$stmt->execute();
-				$conn->query($sql);
-				header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']."&updated=1");
+				$stmt->execute([$_REQUEST['payment_option'],$email_id,$validation_id,]);
+				header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']."&updated=1");
 			}else{
-				header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+				header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 			}
 			
 		}else{
-			header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+			header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 		}
 	}else{
-		header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+		header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 	}
 }else{
-	header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+	header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 }
 /* creating tables Based on Seller */
 function alterFile($sellerdb,$email_id){

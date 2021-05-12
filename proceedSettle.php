@@ -20,70 +20,73 @@ $logger->pushHandler(new StreamHandler('var/logs/DNA_settlement_log.txt', Logger
 
 $conn = getConnection();
 $email_id = '';
-if(isset($_REQUEST['bc_email_id'])){
+if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 	$email_id = $_REQUEST['bc_email_id'];
-	$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-	$stmt->execute();
+	$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+	$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+	$stmt->execute([$email_id,$validation_id]);
 	$stmt->setFetchMode(PDO::FETCH_ASSOC);
 	$result = $stmt->fetchAll();
+	//print_r($result[0]);exit;
 	if (isset($result[0])) {
 		$result = $result[0];
 		if(empty($result['client_id']) || empty($result['client_secret']) || empty($result['client_terminal_id'])){
-			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 		}
 	}else{
-		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 	}
 }
 
-$logger->info("Invoice ID: ".$postData['invoice_id']);
 
 $postData = $_REQUEST;
+$logger->info("Invoice ID: ".$postData['invoice_id']);
 if(isset($postData['invoice_id'])){
-	$sql = "select * from order_payment_details where email_id='".$email_id."' and order_id='".$postData['invoice_id']."'";
+	$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+	$sql = "select * from order_payment_details where email_id=? and order_id=?";
 	$stmt_refund = $conn->prepare($sql);
-	$stmt_refund->execute();
+	$stmt_refund->execute([$email_id,$postData['invoice_id']]);
 	$stmt_refund->setFetchMode(PDO::FETCH_ASSOC);
 	$result_refund = $stmt_refund->fetchAll();
 	if(isset($result_refund[0]) && ($result_refund[0]['type'] == "AUTH") && ($result_refund[0]['settlement_status'] != "CHARGE")) {
-		$payment_details = json_decode($result_refund[0]['api_response'],true);
+		$payment_details = json_decode(str_replace("\\","",$result_refund[0]['api_response']),true);
+		//print_r($payment_details);exit;
 		$request = array(
 						"id"=>$payment_details['id'],
 						"amount"=>(float)$result_refund[0]['total_amount']
-						////"amount"=>49.99
 					);
 		
 		$logger->info("Before processSettlement API call");
-		$res = processSettlement($email_id,$request);
+		$res = processSettlement($email_id,$request,$validation_id);
 		$logger->info("Settlement API response: ".json_encode($res));
 
 		if(isset($res['response'])){
 			if(isset($res['response']['payoutAmount'])){
-				$usql = "UPDATE order_payment_details set settlement_status='".$res['response']['transactionState']."',amount_paid='".$res['response']['payoutAmount']."',settlement_response='".addslashes(json_encode($res['response']))."' where order_id='".$postData['invoice_id']."'";
+				$usql = "UPDATE order_payment_details set settlement_status=?,amount_paid=?,settlement_response=? where order_id=?";
 				$stmt = $conn->prepare($usql);
-				$stmt->execute();
-				$statusResponse = updateOrderStatus($email_id,$postData['invoice_id']);
-				header("Location:settleOrder.php?bc_email_id=".@$_REQUEST['bc_email_id']."&auth=".base64_encode(json_encode($postData['invoice_id'])).'&error=0');
+				$stmt->execute([$res['response']['transactionState'],$res['response']['payoutAmount'],addslashes(json_encode($res['response'])),$postData['invoice_id']]);
+				$statusResponse = updateOrderStatus($email_id,$postData['invoice_id'],$validation_id);
+				header("Location:settleOrder.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']."&auth=".base64_encode(json_encode($postData['invoice_id'])).'&error=0');
 			}else{
-				$usql = "UPDATE order_payment_details set settlement_status='FAILED',settlement_response='".addslashes(json_encode($res['response']))."' where order_id='".$postData['invoice_id']."'";
+				$usql = "UPDATE order_payment_details set settlement_status=?,settlement_response=? where order_id=?";
 				$stmt = $conn->prepare($usql);
-				$stmt->execute();
-				header("Location:settleOrder.php?bc_email_id=".@$_REQUEST['bc_email_id']."&auth=".base64_encode(json_encode($postData['invoice_id'])).'&error=1');
+				$stmt->execute(['FAILED',addslashes(json_encode($res['response'])),$postData['invoice_id']]);
+				header("Location:settleOrder.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']."&auth=".base64_encode(json_encode($postData['invoice_id'])).'&error=1');
 			}
 		}else{
-			header("Location:settleOrder.php?bc_email_id=".@$_REQUEST['bc_email_id']."&auth=".base64_encode(json_encode($postData['invoice_id'])).'&error=2');
+			header("Location:settleOrder.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']."&auth=".base64_encode(json_encode($postData['invoice_id'])).'&error=2');
 		}
 	}else{
-		header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 	}
 }else{
-	header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+	header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 }
 
-function processSettlement($email_id,$request){
+function processSettlement($email_id,$request,$validation_id){
 	$conn = getConnection();
 	$data = array();
-	$bearer_token = authorization($email_id);
+	$bearer_token = authorization($email_id,$validation_id);
 	
 	if(!empty($bearer_token)){
 		$header = array(
@@ -108,9 +111,10 @@ function processSettlement($email_id,$request){
 		$res = curl_exec($ch);
 		curl_close($ch);
 		
-		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response) values("'.$email_id.'","DNA","Settlement Process","'.addslashes($url).'","'.addslashes($request).'","'.addslashes($res).'")';
-		
-		$conn->exec($log_sql);
+		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response,token_validation_id) values(?,?,?,?,?,?,?)';
+				
+		$stmt = $conn->prepare($log_sql);
+		$stmt->execute([$email_id,"DNA","Settlement Process",addslashes($url),addslashes($request),addslashes($res),$validation_id]);
 		
 		////$data['request'] = $request;
 		$data['response'] = array();
@@ -125,10 +129,10 @@ function processSettlement($email_id,$request){
 	return $data;
 }
 
-function updateOrderStatus($email_id,$invoice_id) {
+function updateOrderStatus($email_id,$invoice_id,$validation_id) {
 	$conn = getConnection();
-	$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-	$stmt->execute();
+	$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+	$stmt->execute([$email_id,$validation_id]);
 	$stmt->setFetchMode(PDO::FETCH_ASSOC);
 	$result = $stmt->fetchAll();
 	if (isset($result[0])) {
@@ -138,8 +142,8 @@ function updateOrderStatus($email_id,$invoice_id) {
 			$store_hash = $result['store_hash'];
 			
 			$order_details = array();
-			$stmt_od = $conn->prepare("select * from order_details where invoice_id='".$invoice_id."'");
-			$stmt_od->execute();
+			$stmt_od = $conn->prepare("select * from order_details where invoice_id=?");
+			$stmt_od->execute([$invoice_id]);
 			$stmt_od->setFetchMode(PDO::FETCH_ASSOC);
 			$result_od = $stmt_od->fetchAll();
 			if (isset($result_od[0])) {
@@ -168,23 +172,25 @@ function updateOrderStatus($email_id,$invoice_id) {
 				$res_u = curl_exec($ch);
 				curl_close($ch);
 				
-				$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response) values("'.$email_id.'","BigCommerce","Update Order","'.addslashes($url_u).'","'.addslashes($request_u).'","'.addslashes($res_u).'")';
+				$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response,token_validation_id) values(?,?,?,?,?,?,?)';
 				
-				$conn->exec($log_sql);
+				$stmt = $conn->prepare($log_sql);
+				$stmt->execute([$email_id,"BigCommerce","Update Order",addslashes($url_u),addslashes($request_u),addslashes($res_u),$validation_id]);
 				
-				$u_sql = "update order_refund set order_comments='".$staff_comments."' where r_id='".$rder_refund_id."'";
-				$conn->exec($u_sql);
+				$u_sql = "update order_refund set order_comments=? where r_id=?";
+				$stmt = $conn->prepare($u_sql);
+				$stmt->execute([$staff_comments,$rder_refund_id]);
 			}
 		}
 	}
 }
 
-function authorization($email_id){
+function authorization($email_id,$validation_id){
 	$bearer_token = '';
 	
 	$conn = getConnection();
-	$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-	$stmt->execute();
+	$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+	$stmt->execute([$email_id,$validation_id]);
 	$stmt->setFetchMode(PDO::FETCH_ASSOC);
 	$result = $stmt->fetchAll();
 	if (isset($result[0])) {
@@ -214,9 +220,10 @@ function authorization($email_id){
 		$res = curl_exec($ch);
 		curl_close($ch);
 		
-		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response) values("'.$email_id.'","DNA","Authentication","'.addslashes($url).'","'.addslashes(json_encode($request)).'","'.addslashes($res).'")';
-		
-		$conn->exec($log_sql);
+		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response,token_validation_id) values(?,?,?,?,?,?,?)';
+				
+		$stmt = $conn->prepare($log_sql);
+		$stmt->execute([$email_id,"DNA","Authentication",addslashes($url),addslashes($request),addslashes($res),$validation_id]);
 		
 		if(!empty($res)){
 			$data = json_decode($res,true);

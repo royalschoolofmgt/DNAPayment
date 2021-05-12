@@ -23,12 +23,12 @@ if(isset($_REQUEST['client_id']) && isset($_REQUEST['client_secret']) && isset($
 				$sellerdb = $result['sellerdb'];
 				//alterFile($sellerdb,$paystack_key);
 				
-				$sql = 'update dna_token_validation set client_id="'.$_REQUEST['client_id'].'",client_secret="'.$_REQUEST['client_secret'].'",client_terminal_id="'.$_REQUEST['client_terminal_id'].'" where email_id="'.$email_id.'"';
+				$sql = 'update dna_token_validation set client_id=?,client_secret=?,client_terminal_id=? where email_id=?';
 				// Prepare statement
 				$stmt = $conn->prepare($sql);
 
 				// execute the query
-				$stmt->execute();
+				$stmt->execute([$_REQUEST['client_id'],$_REQUEST['client_secret'],$_REQUEST['client_terminal_id'],$email_id]);
 				
 				$conn->query($sql);
 				

@@ -22,7 +22,7 @@ use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 
 
-if(isset($_REQUEST['bc_email_id'])){
+if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 	
 	$data = file_get_contents('php://input');
 	$fp = fopen("webhook.txt", "w");
@@ -39,8 +39,9 @@ if(isset($_REQUEST['bc_email_id'])){
 					$order_id = $order_data['id'];
 					$conn = getConnection();
 					$email_id = $_REQUEST['bc_email_id'];
-					$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-					$stmt->execute();
+					$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+					$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+					$stmt->execute([$email_id,$validation_id]);
 					$stmt->setFetchMode(PDO::FETCH_ASSOC);
 					$result = $stmt->fetchAll();
 					if(isset($result[0])){
@@ -48,8 +49,8 @@ if(isset($_REQUEST['bc_email_id'])){
 						$acess_token = $result['acess_token'];
 						$store_hash = $result['store_hash'];
 						
-						$stmt_order_det = $conn->prepare("select * from order_details where order_id='".$order_id."'");
-						$stmt_order_det->execute();
+						$stmt_order_det = $conn->prepare("select * from order_details where order_id=?");
+						$stmt_order_det->execute([$order_id]);
 						$stmt_order_det->setFetchMode(PDO::FETCH_ASSOC);
 						$result_order_det = $stmt_order_det->fetchAll();
 						if(isset($result_order_det[0])){
@@ -57,7 +58,7 @@ if(isset($_REQUEST['bc_email_id'])){
 							//$data = getOrderData($order_id,$acess_token,$store_hash);
 							//if($data['status']){
 								if($order_data['status']['new_status_id'] == "2"){
-									orderSettlement($email_id,$result_order_det['invoice_id']);
+									orderSettlement($email_id,$result_order_det['invoice_id'],$validation_id);
 								}
 							//}
 						}
@@ -101,20 +102,20 @@ function getOrderData($orderId,$store_hash,$acess_token){
 	}
 	return $res;
 }
-function orderSettlement($email_id,$invoice_id){
+function orderSettlement($email_id,$invoice_id,$validation_id){
 	
 	// create a log channel
 	$logger = new Logger('Settlement');
 	$logger->pushHandler(new StreamHandler('var/logs/DNA_settlement_log.txt', Logger::INFO));
 
 	$conn = getConnection();
-	$sql = "select * from order_payment_details where email_id='".$email_id."' and order_id='".$invoice_id."'";
+	$sql = "select * from order_payment_details where email_id=? and order_id=?";
 	$stmt_refund = $conn->prepare($sql);
-	$stmt_refund->execute();
+	$stmt_refund->execute([$email_id,$invoice_id]);
 	$stmt_refund->setFetchMode(PDO::FETCH_ASSOC);
 	$result_refund = $stmt_refund->fetchAll();
 	if(isset($result_refund[0]) && ($result_refund[0]['type'] == "AUTH") && ($result_refund[0]['settlement_status'] != "CHARGE")) {
-		$payment_details = json_decode($result_refund[0]['api_response'],true);
+		$payment_details = json_decode(str_replace("\\","",$result_refund[0]['api_response']),true);
 		$request = array(
 						"id"=>$payment_details['id'],
 						"amount"=>(float)$result_refund[0]['total_amount']
@@ -122,26 +123,26 @@ function orderSettlement($email_id,$invoice_id){
 					);
 		
 		$logger->info("Before processSettlement API call");
-		$res = processSettlement($email_id,$request);
+		$res = processSettlement($email_id,$request,$validation_id);
 		$logger->info("Settlement API response: ".json_encode($res));
 
 		if(isset($res['response'])){
 			if(isset($res['response']['payoutAmount'])){
-				$usql = "UPDATE order_payment_details set settlement_status='".$res['response']['transactionState']."',amount_paid='".$res['response']['payoutAmount']."',settlement_response='".addslashes(json_encode($res['response']))."' where order_id='".$invoice_id."'";
+				$usql = "UPDATE order_payment_details set settlement_status=?,amount_paid=?,settlement_response=? where order_id=?";
 				$stmt = $conn->prepare($usql);
-				$stmt->execute();
+				$stmt->execute([$res['response']['transactionState'],$res['response']['payoutAmount'],addslashes(json_encode($res['response'])),$invoice_id]);
 			}else{
-				$usql = "UPDATE order_payment_details set settlement_status='FAILED',settlement_response='".addslashes(json_encode($res['response']))."' where order_id='".$invoice_id."'";
+				$usql = "UPDATE order_payment_details set settlement_status=?,settlement_response=? where order_id=?";
 				$stmt = $conn->prepare($usql);
-				$stmt->execute();
+				$stmt->execute(['FAILED',addslashes(json_encode($res['response'])),$invoice_id]);
 			}
 		}
 	}
 }
-function processSettlement($email_id,$request){
+function processSettlement($email_id,$request,$validation_id){
 	$conn = getConnection();
 	$data = array();
-	$bearer_token = authorization($email_id);
+	$bearer_token = authorization($email_id,$validation_id);
 	
 	if(!empty($bearer_token)){
 		$header = array(
@@ -166,9 +167,10 @@ function processSettlement($email_id,$request){
 		$res = curl_exec($ch);
 		curl_close($ch);
 		
-		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response) values("'.$email_id.'","DNA","Settlement Process","'.addslashes($url).'","'.addslashes($request).'","'.addslashes($res).'")';
+		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response,token_validation_id) values(?,?,?,?,?,?,?)';
 		
-		$conn->exec($log_sql);
+		$stmt = $conn->prepare($log_sql);
+		$stmt->execute([$email_id,"DNA","Settlement Process",addslashes($url),addslashes($request),addslashes($res),$validation_id]);
 		
 		////$data['request'] = $request;
 		$data['response'] = array();
@@ -183,12 +185,12 @@ function processSettlement($email_id,$request){
 	return $data;
 }
 
-function authorization($email_id){
+function authorization($email_id,$validation_id){
 	$bearer_token = '';
 	
 	$conn = getConnection();
-	$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-	$stmt->execute();
+	$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+	$stmt->execute([$email_id,$validation_id]);
 	$stmt->setFetchMode(PDO::FETCH_ASSOC);
 	$result = $stmt->fetchAll();
 	if (isset($result[0])) {
@@ -218,9 +220,10 @@ function authorization($email_id){
 		$res = curl_exec($ch);
 		curl_close($ch);
 		
-		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response) values("'.$email_id.'","DNA","Authentication","'.addslashes($url).'","'.addslashes(json_encode($request)).'","'.addslashes($res).'")';
+		$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response,token_validation_id) values(?,?,?,?,?,?,?)';
 		
-		$conn->exec($log_sql);
+		$stmt = $conn->prepare($log_sql);
+		$stmt->execute([$email_id,"DNA","Authentication",addslashes($url),addslashes($request),addslashes($res),$validation_id]);
 		
 		if(!empty($res)){
 			$data = json_decode($res,true);

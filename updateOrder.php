@@ -12,7 +12,6 @@ use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 
 $data = file_get_contents('php://input');
-
 // create a log channel
 $logger = new Logger('PostLink Update Order');
 $logger->pushHandler(new StreamHandler('var/logs/DNA_update_order.txt', Logger::INFO));
@@ -20,17 +19,19 @@ $logger->info("PostLink Callback data: ".$data);
 							
 if(!empty($data)){
 	$data = json_decode($data,true);
+	//print_r($data);exit;	
 	if(isset($data['success']) && $data['success']){
 		$conn = getConnection();
 		$invoiceId = $data['invoiceId'];
-		$usql = 'update order_payment_details set status = "CONFIRMED",api_response="'.addslashes(json_encode($data)).'" where order_id="'.$invoiceId.'"';
+		$usql = 'update order_payment_details set status = ?,api_response=? where order_id=?';
 		$stmt = $conn->prepare($usql);
-		$stmt->execute();
+		$stmt->execute(["CONFIRMED",addslashes(json_encode($data)),$invoiceId]);
 		
-		$stmt_order_payment = $conn->prepare("select * from order_payment_details where order_id='".$invoiceId."'");
-		$stmt_order_payment->execute();
+		$stmt_order_payment = $conn->prepare("select * from order_payment_details where order_id=?");
+		$stmt_order_payment->execute([$invoiceId]);
 		$stmt_order_payment->setFetchMode(PDO::FETCH_ASSOC);
 		$result_order_payment = $stmt_order_payment->fetchAll();
+		//print_r($result_order_payment);exit;
 		if (isset($result_order_payment[0])) {
 			$result_order_payment = $result_order_payment[0];
 			
@@ -39,8 +40,8 @@ if(!empty($data)){
 			$json = utf8_encode($string);
 			$cartData = json_decode($json,true);
 			$items_total = 0;
-			$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$result_order_payment['email_id']."'");
-			$stmt->execute();
+			$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+			$stmt->execute([$result_order_payment['email_id'],$result_order_payment['token_validation_id']]);
 			$stmt->setFetchMode(PDO::FETCH_ASSOC);
 			$result = $stmt->fetchAll();
 			//print_r($result[0]);exit;
@@ -50,32 +51,34 @@ if(!empty($data)){
 				$store_hash = $result['store_hash'];
 				
 				$order_products = array();
-				foreach($cartData['cart']['lineItems'] as $liv){
+				foreach($cartData['cart']['line_items'] as $liv){
 					$cart_products = $liv;
 					foreach($cart_products as $k=>$v){
-						if($v['variantId'] > 0){
+						if($v['variant_id'] > 0){
 							$details = array();
-							$productOptions = productOptions($acess_token,$store_hash,$result_order_payment['email_id'],$v['productId'],$v['variantId']);
+							$productOptions = productOptions($acess_token,$store_hash,$result_order_payment['email_id'],$v['product_id'],$v['variant_id'],$result_order_payment['token_validation_id']);
 
 							$logger->info("Product variant options: ".json_encode($productOptions));
 
 							$temp_option_values = $productOptions['option_values'];
 							$option_values = array();
 							if(!empty($temp_option_values) && isset($temp_option_values[0])){
-								$option_values[] = array(
-													"id" => $temp_option_values[0]['id'],
-													"value" => $temp_option_values[0]['option_id']
+								foreach($temp_option_values as $tk=>$tv){
+									$option_values[] = array(
+													"id" => $tv['option_id'],
+													"value" => strval($tv['id'])
 												);
+								}
 							}
 							$items_total += $v['quantity'];
 							$details = array(
-											"product_id" => $v['productId'],
+											"product_id" => $v['product_id'],
 											"quantity" => $v['quantity'],
 											"product_options" => $option_values,
-											"price_inc_tax" => $v['salePrice'],
-											"price_ex_tax" => $v['salePrice'],
+											"price_inc_tax" => $v['sale_price'],
+											"price_ex_tax" => $v['sale_price'],
 											"upc" => @$productOptions['upc'],
-											"variant_id" => $v['variantId']
+											"variant_id" => $v['variant_id']
 										);
 							$order_products[] = $details;
 						}
@@ -84,60 +87,60 @@ if(!empty($data)){
 				
 				//print_r($order_products);exit;
 				$checkShipping = false;
-				if(count($cartData['cart']['lineItems']['physicalItems']) > 0 || count($cartData['cart']['lineItems']['customItems']) > 0){
+				if(count($cartData['cart']['line_items']['physical_items']) > 0 || count($cartData['cart']['line_items']['custom_items']) > 0){
 					$checkShipping = true;
 				}else{
-					if(count($cartData['cart']['lineItems']['digitalItems']) > 0){
+					if(count($cartData['cart']['line_items']['digital_items']) > 0){
 						$checkShipping = false;
 					}
 				}
-				$cart_billing_address = $cartData['billingAddress'];
+				$cart_billing_address = $cartData['billing_address'];
 				$billing_address = array(
-										"first_name" => $cart_billing_address['firstName'],
-										"last_name" => $cart_billing_address['lastName'],
+										"first_name" => $cart_billing_address['first_name'],
+										"last_name" => $cart_billing_address['last_name'],
 										"phone" => $cart_billing_address['phone'],
 										"email" => $cart_billing_address['email'],
 										"street_1" => $cart_billing_address['address1'],
 										"street_2" => $cart_billing_address['address2'],
 										"city" => $cart_billing_address['city'],
-										"state" => $cart_billing_address['stateOrProvince'],
-										"zip" => $cart_billing_address['postalCode'],
+										"state" => $cart_billing_address['state_or_province'],
+										"zip" => $cart_billing_address['postal_code'],
 										"country" => $cart_billing_address['country'],
 										"company" => $cart_billing_address['company']
 									);
 				if($checkShipping){
-					$cart_shipping_address = $cartData['consignments'][0]['shippingAddress'];
-					$cart_shipping_options = $cartData['consignments'][0]['selectedShippingOption'];
+					$cart_shipping_address = $cartData['consignments'][0]['shipping_address'];
+					$cart_shipping_options = $cartData['consignments'][0]['selected_shipping_option'];
 					$shipping_address = array(
-											"first_name" => $cart_shipping_address['firstName'],
-											"last_name" => $cart_shipping_address['lastName'],
+											"first_name" => $cart_shipping_address['first_name'],
+											"last_name" => $cart_shipping_address['last_name'],
 											"company" => $cart_shipping_address['company'],
 											"street_1" => $cart_shipping_address['address1'],
 											"street_2" => $cart_shipping_address['address2'],
 											"city" => $cart_shipping_address['city'],
-											"state" => $cart_shipping_address['stateOrProvince'],
-											"zip" => $cart_shipping_address['postalCode'],
+											"state" => $cart_shipping_address['state_or_province'],
+											"zip" => $cart_shipping_address['postal_code'],
 											"country" => $cart_shipping_address['country'],
-											"country_iso2" => $cart_shipping_address['countryCode'],
+											"country_iso2" => $cart_shipping_address['country_code'],
 											"phone" => $cart_shipping_address['phone'],
 											"email" => $cart_billing_address['email'],
 											"shipping_method" => $cart_shipping_options['type']
 										);
 				}
 				$createOrder = array();
-				$createOrder['customer_id'] = $cartData['cart']['customerId'];
+				$createOrder['customer_id'] = $cartData['cart']['customer_id'];
 				$createOrder['products'] = $order_products;
 				if($checkShipping){
 					$createOrder['shipping_addresses'][] = $shipping_address;
 				}
 				$createOrder['billing_address'] = $billing_address;
-				if(isset($cartData['coupons'][0]['discountedAmount'])){
-					$createOrder['discount_amount'] = $cartData['coupons'][0]['discountedAmount'];
+				if(isset($cartData['coupons'][0]['discounted_amount'])){
+					$createOrder['discount_amount'] = $cartData['coupons'][0]['discounted_amount'];
 				}
-				$createOrder['customer_message'] = $cartData['customerMessage'];
+				$createOrder['customer_message'] = $cartData['customer_message'];
 				$createOrder['customer_locale'] = "en";
-				$createOrder['total_ex_tax'] = $cartData['grandTotal'];
-				$createOrder['total_inc_tax'] = $cartData['grandTotal'];
+				$createOrder['total_ex_tax'] = $cartData['grand_total'];
+				$createOrder['total_inc_tax'] = $cartData['grand_total'];
 				$createOrder['geoip_country'] = "India";
 				$createOrder['geoip_country_iso2'] = "IN";
 				//$createOrder['status_id'] = 11;
@@ -172,20 +175,20 @@ if(!empty($data)){
 				$createOrder['default_currency_code'] = $cartData['cart']['currency']['code'];
 				
 				$logger->info("Before create order API call");
-				$bigComemrceOrderId = createOrder($acess_token,$store_hash,$result_order_payment['email_id'],$createOrder,$invoiceId);
+				$bigComemrceOrderId = createOrder($acess_token,$store_hash,$result_order_payment['email_id'],$createOrder,$invoiceId,$result_order_payment['token_validation_id']);
 
 				$logger->info("Create order API response: ".$bigComemrceOrderId);
 
 				if($bigComemrceOrderId != "") {
 					//update order status for trigger status update mail from bigcommerce
 					$logger->info("Before update order status API call");
-					$statusResponse = updateOrderStatus($bigComemrceOrderId, $acess_token, $store_hash, $result_order_payment['email_id']);
+					$statusResponse = updateOrderStatus($bigComemrceOrderId, $acess_token, $store_hash, $result_order_payment['email_id'],$result_order_payment['token_validation_id']);
 
 					$logger->info("Update order status API response: ".$statusResponse);
 				}
 
 				$logger->info("Before delete cart API call");
-				$delCartResponse = deleteCart($acess_token,$store_hash,$result_order_payment['email_id'],$result_order_payment['cart_id']);
+				$delCartResponse = deleteCart($acess_token,$store_hash,$result_order_payment['email_id'],$result_order_payment['cart_id'],$result_order_payment['token_validation_id']);
 
 				$logger->info("delete cart API response: ".$delCartResponse);
 				
@@ -194,7 +197,7 @@ if(!empty($data)){
 	}
 }
 
-function productOptions($acess_token,$store_hash,$email_id,$productId,$variantId){
+function productOptions($acess_token,$store_hash,$email_id,$productId,$variantId,$token_validation_id){
 	$data = array();
 	
 	$conn = getConnection();
@@ -214,9 +217,10 @@ function productOptions($acess_token,$store_hash,$email_id,$productId,$variantId
 	$res = curl_exec($ch);
 	curl_close($ch);
 	
-	$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response) values("'.$email_id.'","BigCommerce","Product Options","'.addslashes($url).'","","'.addslashes($res).'")';
-	//echo $log_sql;exit;
-	$conn->exec($log_sql);
+	$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response,token_validation_id) values(?,?,?,?,?,?,?)';
+				
+	$stmt = $conn->prepare($log_sql);
+	$stmt->execute([$email_id,"BigCommerce","Product Options",addslashes($url),"",addslashes($res),$token_validation_id]);
 	if(!empty($res)){
 		$res = json_decode($res,true);
 		if(isset($res['data'])){
@@ -234,7 +238,7 @@ function productOptions($acess_token,$store_hash,$email_id,$productId,$variantId
 	return $data;
 }
 
-function deleteCart($acess_token,$store_hash,$email_id,$cart_id){
+function deleteCart($acess_token,$store_hash,$email_id,$cart_id,$token_validation_id){
 	$res = "";
 	$conn = getConnection();
 	$header = array(
@@ -255,15 +259,16 @@ function deleteCart($acess_token,$store_hash,$email_id,$cart_id){
 	$res = curl_exec($ch);
 	curl_close($ch);
 	
-	$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response) values("'.$email_id.'","BigCommerce","Clear Cart","'.addslashes($url).'","'.addslashes($request).'","'.addslashes($res).'")';
-	
-	$conn->exec($log_sql);
+	$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response,token_validation_id) values(?,?,?,?,?,?,?)';
+				
+	$stmt = $conn->prepare($log_sql);
+	$stmt->execute([$email_id,"BigCommerce","Clear Cart",addslashes($url),addslashes($request),addslashes($res),$token_validation_id]);
 
 	return $res;
 	
 }
 
-function createOrder($acess_token,$store_hash,$email_id,$request,$invoiceId){
+function createOrder($acess_token,$store_hash,$email_id,$request,$invoiceId,$token_validation_id){
 	$bigComemrceOrderId = "";
 	$conn = getConnection();
 	$header = array(
@@ -288,14 +293,17 @@ function createOrder($acess_token,$store_hash,$email_id,$request,$invoiceId){
 	$res = curl_exec($ch);
 	curl_close($ch);
 	
-	$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response) values("'.$email_id.'","BigCommerce","Create Order","'.addslashes($url).'","'.addslashes($request).'","'.addslashes($res).'")';
-	$conn->exec($log_sql);
+	$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response,token_validation_id) values(?,?,?,?,?,?,?)';
+				
+	$stmt = $conn->prepare($log_sql);
+	$stmt->execute([$email_id,"BigCommerce","Create Order",addslashes($url),addslashes($request),addslashes($res),$token_validation_id]);
 	
 	if(!empty($res)){
 		$res = json_decode($res,true);
 		if(isset($res['id'])){
-			$isql = "INSERT INTO `order_details` (`email_id`, `invoice_id`, `order_id`, `bg_customer_id`, `reponse_params`, `total_inc_tax`, `total_ex_tax`, `currecy`) VALUES ('".$email_id."', '".$invoiceId."', '".$res['id']."', '".$res['customer_id']."', '".addslashes(json_encode($res))."', '".$res['total_inc_tax']."', '".$res['total_ex_tax']."', '".$res['currency_code']."')";
-			$conn->exec($isql);
+			$isql = "INSERT INTO `order_details` (`email_id`, `invoice_id`, `order_id`, `bg_customer_id`, `reponse_params`, `total_inc_tax`, `total_ex_tax`, `currecy`,token_validation_id) VALUES (?,?,?,?,?,?,?,?,?)";
+			$stmt= $conn->prepare($isql);
+			$stmt->execute([$email_id, $invoiceId, $res['id'],$res['customer_id'],addslashes(json_encode($res)),$res['total_inc_tax'],$res['total_ex_tax'],$res['currency_code'],$token_validation_id]);
 
 			$bigComemrceOrderId = $res['id'];
 		}
@@ -304,7 +312,7 @@ function createOrder($acess_token,$store_hash,$email_id,$request,$invoiceId){
 	return $bigComemrceOrderId;
 }
 
-function updateOrderStatus($bigComemrceOrderId,$acess_token,$store_hash,$email_id) {
+function updateOrderStatus($bigComemrceOrderId,$acess_token,$store_hash,$email_id,$token_validation_id) {
 	$conn = getConnection();
 	$url_u = STORE_URL.$store_hash.'/v2/orders/'.$bigComemrceOrderId;
 	$request_u = array("status_id"=>11);
@@ -325,9 +333,9 @@ function updateOrderStatus($bigComemrceOrderId,$acess_token,$store_hash,$email_i
 	$res_u = curl_exec($ch);
 	curl_close($ch);
 	
-	$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response) values("'.$email_id.'","BigCommerce","Update Order","'.addslashes($url_u).'","'.addslashes($request_u).'","'.addslashes($res_u).'")';
-	
-	$conn->exec($log_sql);
+	$log_sql = 'insert into api_log(email_id,type,action,api_url,api_request,api_response,token_validation_id) values(?,?,?,?,?,?,?)';
+	$stmt= $conn->prepare($log_sql);
+	$stmt->execute([$email_id, "BigCommerce", "Update Order",addslashes($url_u),addslashes($request_u),addslashes($res_u),$token_validation_id]);
 
 	return $res_u;
 }

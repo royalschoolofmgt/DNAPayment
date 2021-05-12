@@ -16,26 +16,28 @@ require_once('config.php');
 
 $conn = getConnection();
 
-if(isset($_REQUEST['bc_email_id'])){
+if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 	$email_id = $_REQUEST['bc_email_id'];
-	$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-	$stmt->execute();
+	$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+	$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+	$stmt->execute([$email_id,$validation_id]);
 	$stmt->setFetchMode(PDO::FETCH_ASSOC);
 	$result = $stmt->fetchAll();
+	//print_r($result[0]);exit;
 	if (isset($result[0])) {
 		$result = $result[0];
 		if(empty($result['client_id']) || empty($result['client_secret']) || empty($result['client_terminal_id'])){
-			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 		}
 	}else{
-		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 	}
 }
 $invoice_id = '';
 if(isset($_REQUEST['auth'])){
 	$invoice_id = json_decode(base64_decode($_REQUEST['auth']));
 }else{
-	header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+	header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 }
 ?>
 <!DOCTYPE html>
@@ -61,6 +63,7 @@ if(isset($_REQUEST['auth'])){
       <link href="css/style.css" rel="stylesheet">
       <link href="css/main.css" rel="stylesheet">
       <link href="css/media.css" rel="stylesheet">
+	  <link rel="stylesheet" href="css/toaster/toaster.css">
    </head>
    <body style="background-color: #f9f9fa;">
       <section class="inner-top">
@@ -77,7 +80,7 @@ if(isset($_REQUEST['auth'])){
                   <h4>Settle Client Transaction</h4>
                </div>
                <div class="col-md-6 col-4 text-right">
-					<a href="dashboard.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>">
+					<a href="dashboard.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>">
 						<h5><i class="fas fa-arrow-left"></i> Back To Dashboard</h5>
 					</a>
 				</div>
@@ -86,8 +89,8 @@ if(isset($_REQUEST['auth'])){
 				<?php
 					$conn = getConnection();
 					$refunded_amount = 0;
-					$ref_stmt = $conn->prepare("SELECT * FROM order_refund where email_id='".$_REQUEST['bc_email_id']."' and invoice_id='".$invoice_id."' and refund_status='REFUND'");
-					$ref_stmt->execute();
+					$ref_stmt = $conn->prepare("SELECT * FROM order_refund where email_id=? and invoice_id=? and refund_status=?");
+					$ref_stmt->execute([$_REQUEST['bc_email_id'],$invoice_id,'REFUND']);
 					$ref_stmt->setFetchMode(PDO::FETCH_ASSOC);
 					$ref_result = $ref_stmt->fetchAll();
 					if (count($ref_result) > 0) {
@@ -96,8 +99,8 @@ if(isset($_REQUEST['auth'])){
 						}
 					}
 					
-					$stmt = $conn->prepare("SELECT * FROM order_payment_details opd,order_details od WHERE opd.order_id = od.invoice_id and opd.order_id='".$invoice_id."'");
-					$stmt->execute();
+					$stmt = $conn->prepare("SELECT * FROM order_payment_details opd,order_details od WHERE opd.order_id = od.invoice_id and opd.order_id=?");
+					$stmt->execute([$invoice_id]);
 					$stmt->setFetchMode(PDO::FETCH_ASSOC);
 					$result = $stmt->fetchAll();
 					if (count($result) > 0) {
@@ -138,7 +141,7 @@ if(isset($_REQUEST['auth'])){
                   </div>
 				  <?php if($result['settlement_status'] != "CHARGE"){ ?>
                   <div class="col-md-12 pt22">
-				  <form action="proceedSettle.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>" method="POST" >
+				  <form action="proceedSettle.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>" method="POST" >
                      <div class="row">
 						
                         <div class="col-md-10">
@@ -165,6 +168,7 @@ if(isset($_REQUEST['auth'])){
       <script src="js/jquery.min.js"></script>
 		<script src="js/bootstrap.bundle.min.js"></script>
 		<script src="js/bootstrap.min.js"></script>
+		<script type="text/javascript" charset="utf8" src="js/toaster/jquery.toaster.js"></script>
 	  <script>
 		var getUrlParameter = function getUrlParameter(sParam) {
 			var sPageURL = window.location.search.substring(1),
@@ -185,11 +189,11 @@ if(isset($_REQUEST['auth'])){
 			var error = getUrlParameter('error');
 			if(error){
 				if(error == 0){
-					alert("Settlement Processed Successfully");
+					$.toaster({ priority : "success", title : "Success", message : "Settlement Processed Successfully" });
 				}else if(error == 1){
-					alert("Settlement Processed Failed");
+					$.toaster({ priority : "success", title : "Success", message : "Settlement Processed Failed" });
 				}else if(error == 2){
-					alert("Something Went Wrong");
+					$.toaster({ priority : "success", title : "Success", message : "Something Went Wrong" });
 				}
 			}
 		});

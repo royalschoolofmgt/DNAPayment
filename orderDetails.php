@@ -16,19 +16,21 @@ require_once('config.php');
 
 $conn = getConnection();
 
-if(isset($_REQUEST['bc_email_id'])){
+if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 	$email_id = $_REQUEST['bc_email_id'];
-	$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-	$stmt->execute();
+	$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+	$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+	$stmt->execute([$email_id,$validation_id]);
 	$stmt->setFetchMode(PDO::FETCH_ASSOC);
 	$result = $stmt->fetchAll();
+	//print_r($result[0]);exit;
 	if (isset($result[0])) {
 		$result = $result[0];
 		if(empty($result['client_id']) || empty($result['client_secret']) || empty($result['client_terminal_id'])){
-			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 		}
 	}else{
-		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 	}
 }
 ?>
@@ -72,7 +74,7 @@ if(isset($_REQUEST['bc_email_id'])){
 					  <h4>Order Details</h4>
 					</div>
 					<div class="col-md-6 col-6 text-right">
-						<a href="dashboard.php?bc_email_id=<?= $_REQUEST['bc_email_id'] ?>">
+						<a href="dashboard.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>">
 							<h5><i class="fas fa-arrow-left"></i> Back To Dashboard</h5>
 						</a>
 					</div>
@@ -82,9 +84,9 @@ if(isset($_REQUEST['bc_email_id'])){
 						<div class="col-md-12">
 							<div class="row ">
 								<div class="col-xl-11 col-12">
-									<input type="email" class="form-control1" id="exampleInputEmail1" placeholder="Search">
+									<input type="email" class="form-control1" id="exampleInputEmail1" placeholder="Search OrderID">
 								</div>
-								<div class="col-xl-1 none">
+								<div class="col-xl-1 none" style="display:none">
 									<div class="dropdown">
 										<button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">
 											Action
@@ -142,8 +144,9 @@ if(isset($_REQUEST['bc_email_id'])){
 			});
 			var app_base_url = "<?= BASE_URL ?>";
 			var email_id = "<?= $_REQUEST['bc_email_id'] ?>";
+			var key = "<?= $_REQUEST['key'] ?>";
 			$(document).ready(function(){
-				X247OrderDetails.main_data('scripts/orderdetails_processing.php?email_id='+email_id,'orderdetails_dashboard');
+				X247OrderDetails.main_data('scripts/orderdetails_processing.php?email_id='+email_id+'&key='+key,'orderdetails_dashboard');
 			});
          
          

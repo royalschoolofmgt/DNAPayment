@@ -3,6 +3,7 @@ if (!isset($_SESSION)) {
 	session_start();
 }
 require_once('config.php');
+require_once('db-config.php');
 	////$data = json_decode(file_get_contents('php://input'), true);
 	$data = $_REQUEST;
 	$fp = fopen("load.txt", "w");
@@ -36,10 +37,18 @@ require_once('config.php');
 //show HTML if signed_payload match
 if($jsonData != null && $jsonData != "") {
 	$email = @$jsonData['user']['email'];
-	if(isset($jsonData['user']['email'])){
-		$_SESSION['bc_email_id'] = $jsonData['user']['email']; 
+	$store_hash = @$jsonData['store_hash'];
+	
+	$conn = getConnection();
+	$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and store_hash=?");
+	$stmt->execute([$email,$store_hash]);
+	$stmt->setFetchMode(PDO::FETCH_ASSOC);
+	$result = $stmt->fetchAll();
+		
+	if (count($result) > 0) {
+		$result = $result[0];
+		header("Location: index.php?bc_email_id=".$email."&key=".base64_encode(json_encode($result['validation_id'],true))); 
 	}
-	header("Location: index.php?bc_email_id=".$email); 
 
 }
 ?>

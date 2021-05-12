@@ -20,17 +20,19 @@ $conn = getConnection();
 /* check zoovu token is validated or not 
 	If already Verified redirect to Home Page
 */
-if(isset($_REQUEST['bc_email_id'])){
+$validation_id = '';
+if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 	$email_id = $_REQUEST['bc_email_id'];
-	$stmt = $conn->prepare("select * from dna_token_validation where email_id='".$email_id."'");
-	$stmt->execute();
+	$validation_id = json_decode(base64_decode($_REQUEST['key']),true);
+	$stmt = $conn->prepare("select * from dna_token_validation where email_id=? and validation_id=?");
+	$stmt->execute([$email_id,$validation_id]);
 	$stmt->setFetchMode(PDO::FETCH_ASSOC);
 	$result = $stmt->fetchAll();
 	//print_r($result[0]);exit;
 	if (isset($result[0])) {
 		$result = $result[0];
 		if(!empty($result['client_id']) && !empty($result['client_secret']) && !empty($result['client_terminal_id'])){
-			header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']);
+			header("Location:dashboard.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
 		}
 	}
 }
@@ -83,6 +85,7 @@ if(isset($_REQUEST['bc_email_id'])){
 						<div><span id="error_show" style="color:red;<?= ($error == 1)?'':'display:none;' ?>" >Please provide valid details.</span></div>
 						<form action="validateToken.php" method="POST" >
 							<input type="hidden" name="bc_email_id" value="<?= @$_REQUEST['bc_email_id'] ?>" />
+							<input type="hidden" name="key" value="<?= @$_REQUEST['key'] ?>" />
 							<input type="text" name="client_id" required value="" class="form-control" placeholder="Client ID">
 							<div class="form-group">
 								<div class="input-group">
