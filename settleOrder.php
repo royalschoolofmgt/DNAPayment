@@ -64,6 +64,7 @@ if(isset($_REQUEST['auth'])){
       <link href="css/main.css" rel="stylesheet">
       <link href="css/media.css" rel="stylesheet">
 	  <link rel="stylesheet" href="css/toaster/toaster.css">
+	  <link rel="stylesheet" href="css/247loader.css">
    </head>
    <body style="background-color: #f9f9fa;">
       <section class="inner-top">
@@ -129,11 +130,11 @@ if(isset($_REQUEST['auth'])){
                   </div>
                   <div class="col-md-12 s-conetnt">
                      <div class="row">
-                        <div class="col-md-2">
+                        <div class="col-md-4 d-inline">
                            <p>Amount Paid</p>
                            <h3><?= $result['currency'].' '.$result['amount_paid'] ?></h3>
                         </div>
-                        <div class="col-md-3 visible-lg">
+                        <div class="col-md-8 visible-lg">
                            <p>Settlement Status</p>
                            <span class="badges2"><?= ucfirst($result['settlement_status']) ?></span>
                         </div>
@@ -141,13 +142,13 @@ if(isset($_REQUEST['auth'])){
                   </div>
 				  <?php if($result['settlement_status'] != "CHARGE"){ ?>
                   <div class="col-md-12 pt22">
-				  <form action="proceedSettle.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>" method="POST" >
-                     <div class="row">
+				  <form id="settleOrder" action="proceedSettle.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>" method="POST" >
+                     <div class="row custom-width">
 						
                         <div class="col-md-10">
                         </div>
                         <div class="col-md-2">
-                           <a href="#" class="btn2">Cancel</a>
+                           <a href="orderDetails.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>" class="btn2">Cancel</a>
 								<input type="hidden" name="invoice_id" value="<?= $result['invoice_id'] ?>" />
 								<button type="submit" class="btn1">Settle</button>
 							
@@ -169,7 +170,10 @@ if(isset($_REQUEST['auth'])){
 		<script src="js/bootstrap.bundle.min.js"></script>
 		<script src="js/bootstrap.min.js"></script>
 		<script type="text/javascript" charset="utf8" src="js/toaster/jquery.toaster.js"></script>
+		<script type="text/javascript" charset="utf8" src="js/247loader.js"></script>
 	  <script>
+		var text = "Please wait...";
+		var current_effect = "bounce";
 		var getUrlParameter = function getUrlParameter(sParam) {
 			var sPageURL = window.location.search.substring(1),
 				sURLVariables = sPageURL.split('&'),
@@ -191,11 +195,25 @@ if(isset($_REQUEST['auth'])){
 				if(error == 0){
 					$.toaster({ priority : "success", title : "Success", message : "Settlement Processed Successfully" });
 				}else if(error == 1){
-					$.toaster({ priority : "success", title : "Success", message : "Settlement Processed Failed" });
+					$.toaster({ priority : "danger", title : "Error", message : "Settlement Process Failed" });
 				}else if(error == 2){
-					$.toaster({ priority : "success", title : "Success", message : "Something Went Wrong" });
+					$.toaster({ priority : "danger", title : "Error", message : "Something Went Wrong" });
 				}
 			}
+		});
+		$('body').on('submit','#settleOrder',function(e){
+			$("body").waitMe({
+				effect: current_effect,
+				text: text,
+				bg: "rgba(255,255,255,0.7)",
+				color: "#000",
+				maxSize: "",
+				waitTime: -1,
+				source: "images/img.svg",
+				textPos: "vertical",
+				fontSize: "",
+				onClose: function(el) {}
+			});
 		});
 		</script>
    </body>

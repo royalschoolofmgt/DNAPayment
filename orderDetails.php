@@ -58,6 +58,7 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 		<link href="css/main.css" rel="stylesheet">
 		<link href="css/media.css" rel="stylesheet">
 		<link rel="stylesheet" type="text/css" href="css/datatable/jquery.dataTables.min.css">
+		<link rel="stylesheet" href="css/247loader.css">
 	</head>
 	<body style="background-color: #f9f9fa;">
 		<section class="inner-top">
@@ -84,7 +85,7 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 						<div class="col-md-12">
 							<div class="row ">
 								<div class="col-xl-11 col-12">
-									<input type="email" class="form-control1" id="exampleInputEmail1" placeholder="Search OrderID">
+									<input type="email" class="form-control1" id="exampleInputEmail1" placeholder="Search by BigCommerce Order ID">
 								</div>
 								<div class="col-xl-1 none" style="display:none">
 									<div class="dropdown">
@@ -101,7 +102,8 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 							</div>
 						</div>
 						<div class="col-md-12">
-							<div id="no-more-tables" class="table-responsive">
+							<!-- <div id="no-more-tables" class="table-responsive"> -->
+							<div class="table-responsive">
 								<table class="table" id="orderdetails_dashboard" >
 									<thead class="cf">
 										<tr id="table_columns">
@@ -133,12 +135,15 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 		<script type="text/javascript" charset="utf8" src="js/datatable/jquery.dataTables.min.js"></script>
 		<script type="text/javascript" charset="utf8" src="js/datatable/datatable-responsive.js"></script>
         <script src="js/order-details.js?v=1.00"></script>
+		<script type="text/javascript" charset="utf8" src="js/247loader.js"></script>
 		<style>
 			.paging_simple_numbers{
 				display: flex;
 			}
 		</style>
 		<script>
+			var text = "Please wait...";
+			var current_effect = "bounce";
 			$('input[name="chkOrgRow"]').on('change', function() {
 				$(this).closest('tr').toggleClass('yellow', $(this).is(':checked'));
 			});
@@ -147,6 +152,20 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 			var key = "<?= $_REQUEST['key'] ?>";
 			$(document).ready(function(){
 				X247OrderDetails.main_data('scripts/orderdetails_processing.php?email_id='+email_id+'&key='+key,'orderdetails_dashboard');
+			});
+			$('body').on('click','.btn-line',function(e){
+				$("body").waitMe({
+					effect: current_effect,
+					text: text,
+					bg: "rgba(255,255,255,0.7)",
+					color: "#000",
+					maxSize: "",
+					waitTime: -1,
+					source: "images/img.svg",
+					textPos: "vertical",
+					fontSize: "",
+					onClose: function(el) {}
+				});
 			});
          
          

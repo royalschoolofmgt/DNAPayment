@@ -130,7 +130,8 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 							$enable = "checked";
 						}
 					?>
-					Container Id / Class
+					<p>CSS selector of the previous sibling HTML element
+					<font style="font-size:8px;">(Payment button will be placed after this HTML element)</font></p>
 					<input type="text" name="container_id" id="container_id" required value="<?= @$result_c['container_id'] ?>" class="form-control" placeholder="Container Id / Class">
 					<br/>
 					Css Properties 

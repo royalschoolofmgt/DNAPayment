@@ -209,17 +209,8 @@ td .btn {
 }
 .pt10 { padding-top:10px; }
 
-#exampleModalCenter .modal-header button {
+#exampleModalCenter button {
 	background: transparent !important;
-}
-
-.d-inline p,
-.d-inline h3 {
-	display: inline;
-}
-
-#orderdetails_dashboard td a.btn.btn-line {
-	min-width: 72px;
 }
 
 @media (max-width: 1024px) {

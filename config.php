@@ -4,7 +4,7 @@
 	* Author 247Commerce
 	* Date 22 FEB 2021
 */
-define('BASE_URL','http://'.$_SERVER['HTTP_HOST'].'/dna_pay/');
+define('BASE_URL','https://'.$_SERVER['HTTP_HOST'].'/');
 define('APP_CLIENT_ID','cf8fjrtd0xpj6et34no5fdzdsmlxqh');
 define('APP_CLIENT_SECRET','488d0137e03c8d6149d8c41ed47ab506adcda968336da7f24a5f65271d619720');
 define('STORE_URL','https://api.bigcommerce.com/stores/');

@@ -37,7 +37,11 @@ if(authKey != ""){
 							html += '<h1 class="is-srOnly">Checkout</h1>';
 							html += '<h2 class="checkoutHeader-heading">';
 								html += '<a class="checkoutHeader-link" href="'+storeData.secure_url+'">';
-									html += '<img alt="247Commerce" class="checkoutHeader-logo" id="logoImage" src="'+storeData.logo['url']+'">';
+									if(storeData.logo['url'] != "undefined"){
+										html += '<h1>'+storeData.name+'</h1>';
+									}else{
+										html += '<img alt="'+storeData.name+'" class="checkoutHeader-logo" id="logoImage" src="'+storeData.logo['url']+'">';
+									}
 								html += '</a>';
 							html += '</h2>';
 						html += '</div>';

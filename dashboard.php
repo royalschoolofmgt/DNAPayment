@@ -65,6 +65,7 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
     <link href="css/style.css" rel="stylesheet">
     <link href="css/main.css" rel="stylesheet">
 	<link rel="stylesheet" href="css/toaster/toaster.css">
+	<link rel="stylesheet" href="css/247loader.css">
 
 </head>
 <body>
@@ -93,6 +94,10 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 			top:40% !important;
 			right:40% !important;
 			width: 400px !important;
+		}
+
+		.white-bg.dash-head {
+			min-height: 0;
 		}
 	</style>
     <section class="order-section">
@@ -179,6 +184,9 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 												Capture on shipment
 											</label>
 										</div>
+										<div class="section-update">
+											<button type="submit" class="btn btn-order">UPDATE</button>
+										</div>
 									</li>
 									<li>
 										<h5 class="user-head">Checkout</h5>
@@ -194,9 +202,9 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 							?>
                     </div>   
 
-                    <div class="col-md-12 section-update">
+                    <!-- <div class="col-md-12 section-update">
                         <button type="submit" class="btn btn-order">UPDATE</button>
-                    </div>
+                    </div> -->
 					</form>
                 </div>
 
@@ -225,8 +233,8 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
                     </form>
 
                     
-                    
-                    <table class="table order-table table-responsive-stack" id="tableOne">
+                    <div class="table-responsive">
+                    <table class="table order-table1 table-responsive-stack1" id="tableOne">
                         <thead class="thead-light">
                             <th>Payment Number</th>
                             <th>BigCommerce Order Id</th>
@@ -332,7 +340,7 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 							?>
                         </tbody>                         
                     </table>
-                    
+                    </div>
                 </div>
             </div>
         </div>
@@ -389,10 +397,13 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
     <script src="js/bootstrap.min.js"></script>
 	<script src="js/bootstrap.bundle.min.js"></script>
 	<script type="text/javascript" charset="utf8" src="js/toaster/jquery.toaster.js"></script>
+	<script type="text/javascript" charset="utf8" src="js/247loader.js"></script>
 
 	<script type="text/javascript">
 		var bc_email_id = "<?= @$_REQUEST['bc_email_id'] ?>";
 		var key = "<?= @$_REQUEST['key'] ?>";
+		var text = "Please wait...";
+		var current_effect = "bounce";
 		$(document).ready(function() {
 			// inspired by http://jsfiddle.net/arunpjohny/564Lxosz/1/
 			$('.table-responsive-stack').each(function (i) {
@@ -454,6 +465,18 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 				$('body #tableText2').show();
 			});
 			$('body').on('click','.saveKey',function(e){
+				$("body").waitMe({
+					effect: current_effect,
+					text: text,
+					bg: "rgba(255,255,255,0.7)",
+					color: "#000",
+					maxSize: "",
+					waitTime: -1,
+					source: "images/img.svg",
+					textPos: "vertical",
+					fontSize: "",
+					onClose: function(el) {}
+				});
 				var prev_key = $('body #changeTextInput').attr('data-key');
 				var prev_key1 = $('body #changeTextInput1').attr('data-key');
 				var prev_key2 = $('body #changeTextInput2').attr('data-key');
@@ -479,7 +502,7 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 				if(post){
 					$.ajax({
 						type: 'POST',
-						url: 'alterClientDetails.php?bc_email_id='+bc_email_id+'key='+key,
+						url: 'alterClientDetails.php?bc_email_id='+bc_email_id+'&key='+key,
 						data:{client_id:client_id,client_secret:client_secret,client_terminal_id:client_terminal_id},
 						success: function (res) {
 							$('body .save').attr('data-key',client_id)
@@ -489,20 +512,62 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 							$('body #tableText').html('<p class="user-para">'+client_id+'</p>');
 							$('body #tableText1').html('<p class="user-para">'+client_secret+'</p>');
 							$('body #tableText2').html('<p class="user-para">'+client_terminal_id+'</p>');
+							$("body").waitMe("hide");
 						}
 					});
+				}else{
+					$("body").waitMe("hide");
 				}
 			});
 			$('body').on('change','#actionChange',function(){
+				$("body").waitMe({
+					effect: current_effect,
+					text: text,
+					bg: "rgba(255,255,255,0.7)",
+					color: "#000",
+					maxSize: "",
+					waitTime: -1,
+					source: "images/img.svg",
+					textPos: "vertical",
+					fontSize: "",
+					onClose: function(el) {}
+				});
 				var val = $(this).val();
 				if(val == "0"){
 					var url = 'enable.php?bc_email_id='+bc_email_id+'&key='+key;
 					window.location.href = url;
 				}else{
 					$('body #exampleModalCenter').modal('show');
+					$("body").waitMe("hide");
 				}
 			});
+			$('body').on('click','.btn-line',function(e){
+				$("body").waitMe({
+					effect: current_effect,
+					text: text,
+					bg: "rgba(255,255,255,0.7)",
+					color: "#000",
+					maxSize: "",
+					waitTime: -1,
+					source: "images/img.svg",
+					textPos: "vertical",
+					fontSize: "",
+					onClose: function(el) {}
+				});
+			});
 			$('body').on('click','#deleteConfirm',function(e){
+				$("body").waitMe({
+					effect: current_effect,
+					text: text,
+					bg: "rgba(255,255,255,0.7)",
+					color: "#000",
+					maxSize: "",
+					waitTime: -1,
+					source: "images/img.svg",
+					textPos: "vertical",
+					fontSize: "",
+					onClose: function(el) {}
+				});
 				var url = 'disable.php?bc_email_id='+bc_email_id+'&key='+key;
 				window.location.href = url;
 			});

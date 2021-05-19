@@ -73,6 +73,7 @@ if(isset($_REQUEST['auth'])){
     <link href="css/main.css" rel="stylesheet">
     <link href="css/media.css" rel="stylesheet">
 	<link rel="stylesheet" href="css/toaster/toaster.css">
+	<link rel="stylesheet" href="css/247loader.css">
 
 </head>
 
@@ -121,7 +122,7 @@ if(isset($_REQUEST['auth'])){
 				if (count($result) > 0) {
 					$result = $result[0];
 				?>
-				<form action="proceedRefund.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>" method="POST" >
+				<form id="proceedRefund" action="proceedRefund.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>" method="POST" >
 			<div class="order-details-bg settle">
 			
 				<div class="col-md-12 s-conetnt">
@@ -154,7 +155,7 @@ if(isset($_REQUEST['auth'])){
 						</div>
 						<div class="col-md-5">
 							<input type="hidden" name="invoice_id" value="<?= $result['invoice_id'] ?>" />
-							<p><input class="form-control" type="number" required name="refund_amount" step=any value="" min=1 max="<?= $result['total_amount']-$refunded_amount ?>" />(Amount can be Refunded only one time).</p>
+							<p><input class="form-control" type="number" required name="refund_amount" oninput="validity.valid||(value='');" step=any value="" min=1 max="<?= $result['total_amount']-$refunded_amount ?>" />(Amount can be Refunded only one time).</p>
 						</div>
 						<?php } ?>
 						<div class="col-md-3 amount-refund visible-lg">
@@ -205,7 +206,7 @@ if(isset($_REQUEST['auth'])){
 						<div class="col-md-10">
 						</div>
 						<div class="col-md-2">
-						<a href="#" class="btn2">Cancel</a><button type="submit" class="btn1">Refund</abutton
+						<a href="orderDetails.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>" class="btn2">Cancel</a><button type="submit" class="btn1">Refund</abutton
 						</div>
 					</div>
 				</div>
@@ -231,7 +232,10 @@ if(isset($_REQUEST['auth'])){
 <script src="js/bootstrap.bundle.min.js"></script>
 <script src="js/bootstrap.min.js"></script>
 <script type="text/javascript" charset="utf8" src="js/toaster/jquery.toaster.js"></script>
+<script type="text/javascript" charset="utf8" src="js/247loader.js"></script>
 <script>
+var text = "Please wait...";
+var current_effect = "bounce";
 $('input[name="chkOrgRow"]').on('change', function() {
   $(this).closest('tr').toggleClass('yellow', $(this).is(':checked'));
 });
@@ -260,9 +264,9 @@ $(document).ready(function(){
 		if(error == 0){
 			$.toaster({ priority : "success", title : "Success", message : "Refund Processed Successfully" });
 		}else if(error == 1){
-			$.toaster({ priority : "success", title : "Success", message : "Refund Processed Failed" });
+			$.toaster({ priority : "danger", title : "Error", message : "Refund Processed Failed" });
 		}else if(error == 2){
-			$.toaster({ priority : "success", title : "Success", message : "Something Went Wrong" });
+			$.toaster({ priority : "danger", title : "Error", message : "Something Went Wrong" });
 		}
 	}
 	$('body').on('click','.showTrans',function(e){
@@ -272,6 +276,20 @@ $(document).ready(function(){
 		}else{
 			$('body #demoTrans').addClass("collapse");
 		}
+	});
+	$('body').on('submit','#proceedRefund',function(e){
+		$("body").waitMe({
+			effect: current_effect,
+			text: text,
+			bg: "rgba(255,255,255,0.7)",
+			color: "#000",
+			maxSize: "",
+			waitTime: -1,
+			source: "images/img.svg",
+			textPos: "vertical",
+			fontSize: "",
+			onClose: function(el) {}
+		});
 	});
 });
 </script>

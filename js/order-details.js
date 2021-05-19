@@ -57,7 +57,8 @@
 		$('body #'+table_id+" #table_data_rows").html('');
 		
 		if(X247OrderDetails.cols_data != ""){
-			var table_columns = '<th class="no-sort" ><input type="checkbox" id="ckbCheckAll" /></th>';
+			//var table_columns = '<th class="no-sort" ><input type="checkbox" id="ckbCheckAll" /></th>';
+			var table_columns = '';
 			$.each(X247OrderDetails.cols_data,function(k,v){
 				table_columns += '<th class="sorting" id="customSort_'+v.val+'"><span title="sort this column">'+v.name+'</span></th>';
 			});
@@ -122,7 +123,7 @@
 			"processing": true,
 			"serverSide": true,
 			"ajax": {
-				"url": app_base_url+"scripts/orderdetails_processing.php?email_id="+email_id,
+				"url": app_base_url+"scripts/orderdetails_processing.php?email_id="+email_id+'&key='+key,
 				"type": "POST",
 				"data":jsonData,
 				dataFilter: function(data){

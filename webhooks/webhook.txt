@@ -1,0 +1,1 @@
+s:251:"{"created_at":1620925145,"store_id":"1001789258","producer":"stores/bln3m31m6n","scope":"store/order/statusUpdated","hash":"a38ac484825641ff4bf163f1426e6a521efc6d6c","data":{"type":"order","id":104,"status":{"previous_status_id":2,"new_status_id":4}}}";

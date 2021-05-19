@@ -75,7 +75,7 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 					<img src="images/logo.png" alt="logo" class="img-responsive">
 					<div class="col-md-8 white-bg">
 						<h4>Getting Started</h4>
-						<p>Login to the dashboard</p>
+						<p>Enter credentials</p>
 						<?php
 							$error=0;
 							if(isset($_REQUEST['error']) && $_REQUEST['error'] == 1){
@@ -90,11 +90,10 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 							<div class="form-group">
 								<div class="input-group">
 									<input type="text" class="form-control" name="client_secret" required id="exampleInputAmount" placeholder="Client Secret">
-									<div class="input-group-addon input-eye"><i class="far fa-eye"></i></div>
 								</div>
 							</div>
-							<input type="text" name="client_terminal_id" required value="" class="form-control" placeholder="Terminal ID">
-							<span>How can I <a href="#">get my client id, client secret and terminal id?</a></span>
+							<input type="text" name="client_terminal_id" required value="" class="form-control" placeholder="Terminal ID"><br/>
+							<span>How can I <a href="https://developer.dnapayments.com/docs/cms/getting-started/" target="_blank">get my client id, client secret and terminal id?</a></span>
 							<button type="submit" class="btn btn-submit">Submit</button>
 						</form>
 					</div>
