@@ -33,8 +33,10 @@ function download_send_headers($filename) {
 function saveFile($filename,$filecontent,$folderPath=''){
     if (strlen($filename)>0){
         if (!file_exists($folderPath)) {
-            mkdir($folderPath);
-        }
+			$permit = 0777;
+			mkdir($folderPath);
+			chmod($folderPath, $permit);
+		}
         $file = @fopen($folderPath . DIRECTORY_SEPARATOR . $filename,"w");
         if ($file != false){
 			//file_put_contents($folderPath . DIRECTORY_SEPARATOR . $filename, "$filecontent");

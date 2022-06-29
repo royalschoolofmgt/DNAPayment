@@ -1,0 +1,1 @@
+s:61:"{"error":"Confirmation not provided for requested PCI scope"}";

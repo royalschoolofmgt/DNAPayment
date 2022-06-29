@@ -26,8 +26,14 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 	//print_r($result[0]);exit;
 	if (isset($result[0])) {
 		$result = $result[0];
-		if(empty($result['client_id']) || empty($result['client_secret']) || empty($result['client_terminal_id'])){
-			header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
+		if($result['is_test_live'] == '1'){
+			if(empty($result['client_id']) && empty($result['client_secret']) && empty($result['client_terminal_id'])){
+				header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
+			}
+		}else{
+			if(empty($result['client_id_test']) && empty($result['client_secret_test']) && empty($result['client_terminal_id_test'])){
+				header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
+			}
 		}
 	}else{
 		header("Location:index.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']);
@@ -121,6 +127,14 @@ if(isset($_REQUEST['auth'])){
 				$result = $stmt->fetchAll();
 				if (count($result) > 0) {
 					$result = $result[0];
+					$params = json_decode(str_replace("\\","",base64_decode($result['params'])),true);
+					$checked = "";
+					$checked1 = "";
+					if($result['refund_type'] == 'RC'){
+						$checked = 'checked';
+					}else{
+						$checked1 = 'checked';
+					}
 				?>
 				<form id="proceedRefund" action="proceedRefund.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>" method="POST" >
 			<div class="order-details-bg settle">
@@ -147,7 +161,21 @@ if(isset($_REQUEST['auth'])){
 						</div>
 					</div>
 				</div>
-					<div class="col-md-12 s-conetnt">
+				<div class="col-md-12 s-conetnt">
+					<div class="row">
+						<div class="col-md-3 amount-refund visible-lg">
+							<input type="radio" id="refund_option1" name="refund_option" value='0' <?= $checked ?> />
+							<label for="refund_option1">Refund Amount Directly to Customer</label>
+						</div>
+						<div class="col-md-3 amount-refund visible-lg">
+						<?php if(isset($params['cart']['customer_id']) && $params['cart']['customer_id'] > 0){ ?>
+							<input id="refund_option2" type="radio" name="refund_option" value='1' <?= $checked1 ?>/>
+							<label for="refund_option2" >Refund Amount to Store Credit</label>
+						<?php } ?>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-12 s-conetnt">
 					<div class="row">
 						<?php if($refunded_amount == 0){ ?>
 						<div class="col-md-2">
@@ -202,11 +230,14 @@ if(isset($_REQUEST['auth'])){
 				</div>
 				<?php if($refunded_amount == 0){ ?>
 				<div class="col-md-12 pt22">
-					<div class="row">
+					<div class="row custom-width">
 						<div class="col-md-10">
 						</div>
 						<div class="col-md-2">
-						<a href="orderDetails.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>" class="btn2">Cancel</a><button type="submit" class="btn1">Refund</abutton
+
+								<a href="orderDetails.php?bc_email_id=<?= $_REQUEST['bc_email_id']."&key=".@$_REQUEST['key'] ?>" class="btn2">Cancel</a>
+								<button type="submit" class="btn1">Refund</button>
+
 						</div>
 					</div>
 				</div>

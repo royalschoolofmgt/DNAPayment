@@ -1,0 +1,1 @@
+s:252:"{"producer":"stores/jdc1rr0xlg","hash":"5fdf1ef6764c91bc79cd08f7ab0ecf3dac769b8b","created_at":1652776480,"store_id":"1002192722","scope":"store/order/statusUpdated","data":{"type":"order","id":154,"status":{"previous_status_id":0,"new_status_id":11}}}";

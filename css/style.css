@@ -760,6 +760,18 @@ input:checked + .slider:before {
 	.red-box, .green-box {
 		display: inline;
 	}
+
+	.custom-width .col-md-10 {
+		width: 100%;
+	}
+
+	.custom-width .col-md-2 {
+	    width: 100%;
+	}
+	.custom-width .col-md-2 div {
+		text-align: right;
+    float: right;
+	}
 }
 
 @media screen and (max-width: 900px) {
@@ -874,4 +886,10 @@ input:checked + .slider:before {
 
 #exampleModalCenter .modal-header button {
 	background: transparent !important;
+}
+
+@media (min-width: 768px) {
+		.amount-refund.col-md-3 {
+			width: 30%;
+		}
 }

@@ -69,6 +69,17 @@ if(!empty($data)){
 													"value" => strval($tv['id'])
 												);
 								}
+							}else{
+								if(isset($v['options']) && !empty($v['options'])){
+									foreach($v['options'] as $tk=>$tv){
+										if(isset($tv['name_id']) && isset($tv['value_id'])){
+											$option_values[] = array(
+														"id" => $tv['name_id'],
+														"value" => strval($tv['value_id'])
+													);
+										}
+									}
+								}
 							}
 							$items_total += $v['quantity'];
 							$details = array(
@@ -124,7 +135,7 @@ if(!empty($data)){
 											"country_iso2" => $cart_shipping_address['country_code'],
 											"phone" => $cart_shipping_address['phone'],
 											"email" => $cart_billing_address['email'],
-											"shipping_method" => $cart_shipping_options['type']
+											"shipping_method" => $cart_shipping_options['description']
 										);
 				}
 				$createOrder = array();
@@ -141,13 +152,15 @@ if(!empty($data)){
 				$createOrder['customer_locale'] = "en";
 				$createOrder['total_ex_tax'] = $cartData['grand_total'];
 				$createOrder['total_inc_tax'] = $cartData['grand_total'];
-				$createOrder['geoip_country'] = "India";
-				$createOrder['geoip_country_iso2'] = "IN";
+				$createOrder['geoip_country'] = $cart_billing_address['country'];
+				$createOrder['geoip_country_iso2'] = $cart_billing_address['country_code'];
 				//$createOrder['status_id'] = 11;
 				$createOrder['ip_address'] = get_client_ip();
 				if($checkShipping){
 					$createOrder['order_is_digital'] = true;
 				}
+				$createOrder['shipping_cost_ex_tax'] = $cartData['shipping_cost_total_ex_tax'];
+				$createOrder['shipping_cost_inc_tax'] = $cartData['shipping_cost_total_inc_tax'];
 				
 				/*$createOrder['subtotal_ex_tax'] = $cartData['subtotal'];
 				$createOrder['subtotal_inc_tax'] = $cartData['subtotal'];
@@ -170,8 +183,9 @@ if(!empty($data)){
 				$createOrder['geoip_country_iso2'] = $geoData['country'];
 				$createOrder['staff_notes'] = "";*/
 				$createOrder['tax_provider_id'] = "BasicTaxProvider";
-				$createOrder['payment_method'] = "Manual";
+				$createOrder['payment_method'] = "DNA PAYMENTS";
 				$createOrder['external_source'] = "247 DNA";
+				$createOrder['status_id'] = 0;
 				$createOrder['default_currency_code'] = $cartData['cart']['currency']['code'];
 				
 				$logger->info("Before create order API call");
@@ -358,7 +372,10 @@ function get_client_ip()
     } else {
         $ipaddress = 'UNKNOWN';
     }
-
+	$ip = explode(",",$ipaddress);
+	if(isset($ip[0])){
+		$ipaddress = $ip[0];
+	}
     return $ipaddress;
 }
 

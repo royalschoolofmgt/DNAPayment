@@ -70,6 +70,10 @@ if(isset($postData['invoice_id']) && isset($postData['refund_amount'])){
 				$stmt = $conn->prepare($usql);
 				$stmt->execute([$res['response']['transactionState'],addslashes(json_encode($res['response'])),$last_id]);
 				
+				$usql_p = "UPDATE order_payment_details set settlement_status=? where order_id=?";
+				$stmt_p = $conn->prepare($usql_p);
+				$stmt_p->execute([$res['response']['transactionState'],$postData['invoice_id']]);
+				
 				$statusResponse = updateOrderStatus($email_id,$last_id,$postData['invoice_id'],$validation_id);
 				
 				header("Location:refundOrder.php?bc_email_id=".@$_REQUEST['bc_email_id']."&key=".@$_REQUEST['key']."&auth=".base64_encode(json_encode($postData['invoice_id'])).'&error=0');

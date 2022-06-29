@@ -77,7 +77,8 @@ if(isset($_REQUEST['authKey'])){
 						}
 						$currency = $cartData['cart']['currency']['code'];
 						$billingAddress = $cartData['billing_address'];
-						$invoiceId = "DNA".time();
+						//$invoiceId = "DNA".time();
+						$invoiceId = "DNA-".$result['validation_id'].'-'.uniqid().'-'.time();
 						$request = array(
 							"scope" => "payment integration_embedded",
 							"client_id" => $result['client_id'],
@@ -200,7 +201,7 @@ function getCartData($email_id,$cartId,$acess_token,$store_hash,$validation_id){
 				"Content-Type: application/json"
 			);
 		$request = '';
-		$url = STORE_URL.$store_hash.'/v3/checkouts/'.$cartId;
+		$url = STORE_URL.$store_hash.'/v3/checkouts/'.$cartId.'?include=cart.line_items.physical_items.options%2Ccart.line_items.digital_items.options%2Ccustomer%2Ccustomer.customerGroup%2Cpayments%2Cpromotions.banners%2Ccart.line_items.physical_items.categoryNames%2Ccart.line_items.digital_items.category_names';
 		//print_r($url);exit;
 		$ch = curl_init($url); 
 		curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);

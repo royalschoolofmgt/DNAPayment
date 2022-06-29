@@ -105,9 +105,17 @@ if(isset($_REQUEST['email_id']) && isset($_REQUEST['key'])){
 						}else if($dbv['val'] == "settlement_status"){
 							$sstatus = '';
 							if($values['type'] == "SALE"){
-								$sstatus = '';
+								if($values['status'] == "CONFIRMED"){
+									if($values['settlement_status'] == "REFUND"){
+										$sstatus = '<span class="badges1">'.ucfirst($values[$dbv['val']]).'</span>';
+									}else{
+										$sstatus = '<span class="badges1">Confirmed</span>';
+									}
+								}else{
+									$sstatus = '<span class="badges">'.ucfirst($values['status']).'</span>';
+								}
 							}else{
-								if($values['settlement_status'] == "CHARGE"){
+								if(($values['settlement_status'] == "CHARGE") || ($values['settlement_status'] == "REFUND")){
 									$sstatus = '<span class="badges1">'.ucfirst($values[$dbv['val']]).'</span>';
 								}else{
 									$sstatus = '<span class="badges">'.ucfirst($values[$dbv['val']]).'</span>';

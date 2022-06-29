@@ -207,7 +207,9 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
                     </div> -->
 					</form>
                 </div>
-
+				<div class="col-md-12 section-update text-right">
+                    <p>Support Email : <a href="mailto:support@dnapayments.com">support@dnapayments.com</a></p>
+                </div>
                 <span class="title-head" style="color: #000; margin-top:30px; ">
                     Order Details
 
@@ -282,9 +284,17 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 											<?php
 												$sstatus = '';
 												if($values['type'] == "SALE"){
-													$sstatus = '';
+													if($values['status'] == "CONFIRMED"){
+														if($values['settlement_status'] == "REFUND"){
+															$sstatus = '<span class="badges1">'.ucfirst($values['settlement_status']).'</span>';
+														}else{
+															$sstatus = '<span class="badges1">Confirmed</span>';
+														}
+													}else{
+														$sstatus = '<span class="badges">'.ucfirst($values['status']).'</span>';
+													}
 												}else{
-													if($values['settlement_status'] == "CHARGE"){
+													if(($values['settlement_status'] == "CHARGE") || ($values['settlement_status'] == "REFUND")){
 														$sstatus = '<span class="badges1">'.ucfirst($values['settlement_status']).'</span>';
 													}else{
 														$sstatus = '<span class="badges">'.ucfirst($values['settlement_status']).'</span>';

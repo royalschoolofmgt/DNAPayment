@@ -93,7 +93,7 @@ if(isset($_REQUEST['bc_email_id']) && isset($_REQUEST['key'])){
 								</div>
 							</div>
 							<input type="text" name="client_terminal_id" required value="" class="form-control" placeholder="Terminal ID"><br/>
-							<span>How can I <a href="https://developer.dnapayments.com/docs/cms/getting-started/" target="_blank">get my client id, client secret and terminal id?</a></span>
+							<span>How can I <a href="https://developer.dnapayments.com/docs/ecommerce/ecommerce-plugins/getting-started/" target="_blank">get my client id, client secret and terminal id?</a></span>
 							<button type="submit" class="btn btn-submit">Submit</button>
 						</form>
 					</div>

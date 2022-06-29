@@ -1,0 +1,1 @@
+SQLSTATE[HY000]: General error: trying to execute an empty query

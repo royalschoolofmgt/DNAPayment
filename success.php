@@ -154,6 +154,17 @@ function createBGOrder($invoiceId,$validation_id){
 												"value" => strval($tv['id'])
 											);
 							}
+						}else{
+							if(isset($v['options']) && !empty($v['options'])){
+								foreach($v['options'] as $tk=>$tv){
+									if(isset($tv['name_id']) && isset($tv['value_id'])){
+										$option_values[] = array(
+													"id" => $tv['name_id'],
+													"value" => strval($tv['value_id'])
+												);
+									}
+								}
+							}
 						}
 						$items_total += $v['quantity'];
 						$details = array(
@@ -225,8 +236,13 @@ function createBGOrder($invoiceId,$validation_id){
 			$createOrder['customer_locale'] = "en";
 			$createOrder['total_ex_tax'] = $cartData['grand_total'];
 			$createOrder['total_inc_tax'] = $cartData['grand_total'];
+			$createOrder['geoip_country'] = $cart_billing_address['country'];
+			$createOrder['geoip_country_iso2'] = $cart_billing_address['country_code'];
+			$createOrder['ip_address'] = get_client_ip();
+			$createOrder['shipping_cost_ex_tax'] = $cartData['shipping_cost_total_ex_tax'];
+			$createOrder['shipping_cost_inc_tax'] = $cartData['shipping_cost_total_inc_tax'];
 			
-			$createOrder['payment_method'] = "custom";
+			$createOrder['payment_method'] = "DNA PAYMENTS";
 			$createOrder['external_source'] = "247 DNA";
 			$createOrder['default_currency_code'] = $cartData['cart']['currency']['code'];
 			
@@ -382,7 +398,10 @@ function get_client_ip()
     } else {
         $ipaddress = 'UNKNOWN';
     }
-
+	$ip = explode(",",$ipaddress);
+	if(isset($ip[0])){
+		$ipaddress = $ip[0];
+	}
     return $ipaddress;
 }
 

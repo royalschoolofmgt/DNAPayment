@@ -108,9 +108,11 @@ function createFolder($sellerdb,$email_id,$validation_id){
 		$folderPath = './'.$sellerdb;
 		$filecontent = '$("head").append("<script src=\"'.BASE_URL.'js/247loader.js\" ></script>");';
 		$filecontent .= '$("head").append("<link rel=\"stylesheet\" type=\"text/css\" href=\"'.BASE_URL.'css/247loader.css\" />");';
-		$filecontent .= 'window.DNAPayments.configure ({                 
-			isTestMode: true
-		});';//Remove for Live
+		if(ENVIRONMENT == "dev"){
+			$filecontent .= 'window.DNAPayments.configure ({                 
+				isTestMode: true
+			});';//Remove for Live
+		}
 		$filecontent .= '$(document).ready(function() {
 	var stIntId = setInterval(function() {
 		if($(".checkout-step--payment").length > 0) {
@@ -132,7 +134,7 @@ function createFolder($sellerdb,$email_id,$validation_id){
 	});
 
 	$("body").on("click", "button#checkout-customer-continue, button#checkout-shipping-continue, button#checkout-billing-continue", function() {
-		checkDnaPayBtnVisibility();
+		setTimeout(checkDnaPayBtnVisibility, 2000);
 	});
 	$("body").on("click","#dnapaymentForm",function(e){
 		e.preventDefault();
@@ -245,22 +247,12 @@ function billingAddressValdation(billingAddress){
 	}else{
 		errorCount++;
 	}
-	if(typeof(billingAddress.stateOrProvince) != "undefined" && billingAddress.stateOrProvince !== null && billingAddress.stateOrProvince !== "") {
-		
-	}else{
-		errorCount++;
-	}
 	if(typeof(billingAddress.postalCode) != "undefined" && billingAddress.postalCode !== null && billingAddress.postalCode !== "") {
 		
 	}else{
 		errorCount++;
 	}
 	if(typeof(billingAddress.country) != "undefined" && billingAddress.country !== null && billingAddress.country !== "") {
-		
-	}else{
-		errorCount++;
-	}
-	if(typeof(billingAddress.phone) != "undefined" && billingAddress.phone !== null && billingAddress.phone !== "") {
 		
 	}else{
 		errorCount++;
@@ -294,22 +286,12 @@ function shippingAddressValdation(shippingAddress){
 			}else{
 				errorCount++;
 			}
-			if(typeof(shippingAddress.stateOrProvince) != "undefined" && shippingAddress.stateOrProvince !== null && shippingAddress.stateOrProvince !== "") {
-				
-			}else{
-				errorCount++;
-			}
 			if(typeof(shippingAddress.postalCode) != "undefined" && shippingAddress.postalCode !== null && shippingAddress.postalCode !== "") {
 				
 			}else{
 				errorCount++;
 			}
 			if(typeof(shippingAddress.country) != "undefined" && shippingAddress.country !== null && shippingAddress.country !== "") {
-				
-			}else{
-				errorCount++;
-			}
-			if(typeof(shippingAddress.phone) != "undefined" && shippingAddress.phone !== null && shippingAddress.phone !== "") {
 				
 			}else{
 				errorCount++;
